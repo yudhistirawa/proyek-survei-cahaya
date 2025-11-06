@@ -2,12 +2,22 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '../../lib/firebase-admin.js';
 
 export const dynamic = 'force-dynamic';
-const surveysExistingCollection = adminDb.collection('Survey_Existing_Report');
-const surveysAPJProposeCollection = adminDb.collection('Tiang_APJ_Propose_Report');
-const validSurveyCollection = adminDb.collection('Valid_Survey_Data');
+
+// Lazy collection getters to avoid calling .collection() on null during build
+const getSurveysExistingCollection = () => adminDb?.collection('Survey_Existing_Report');
+const getSurveysAPJProposeCollection = () => adminDb?.collection('Tiang_APJ_Propose_Report');
+const getValidSurveyCollection = () => adminDb?.collection('Valid_Survey_Data');
 
 export async function GET(request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: 'Firebase Admin not initialized' },
+        { status: 503 }
+      );
+    }
+
+    const validSurveyCollection = getValidSurveyCollection();
     const { searchParams } = new URL(request.url);
     const surveyType = searchParams.get('type');
 
@@ -150,6 +160,9 @@ export async function GET(request) {
 
     // Query untuk mengambil survey yang sudah divalidasi dari kedua koleksi
     let existingSnapshot, apjProposeSnapshot;
+    
+    const surveysExistingCollection = getSurveysExistingCollection();
+    const surveysAPJProposeCollection = getSurveysAPJProposeCollection();
     
     try {
       // Query untuk Survey Existing

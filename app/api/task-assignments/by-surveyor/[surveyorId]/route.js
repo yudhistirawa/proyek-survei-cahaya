@@ -1,26 +1,15 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Initialize Firebase Admin
-const initializeFirebaseAdmin = () => {
-  if (getApps().length === 0) {
-    const serviceAccount = JSON.parse(
-      Buffer.from(process.env.FIREBASE_ADMIN_CREDENTIALS_BASE64, 'base64').toString('utf8')
-    );
-    
-    initializeApp({
-      credential: cert(serviceAccount)
-    });
-  }
-  return getFirestore();
-};
-
-// Initialize Firebase Admin
-const adminDb = initializeFirebaseAdmin();
+import { adminDb } from '../../../../lib/firebase-admin.js';
 
 export async function GET(request, { params }) {
   try {
+    if (!adminDb) {
+      return NextResponse.json(
+        { success: false, error: 'Firebase Admin not initialized' },
+        { status: 503 }
+      );
+    }
+
     const { surveyorId } = params;
     
     if (!surveyorId) {
@@ -31,7 +20,7 @@ export async function GET(request, { params }) {
     }
 
     // Query task_assignments collection for the given surveyorId
-    const snapshot = await getFirestore()
+    const snapshot = await adminDb
       .collection('task_assignments')
       .where('surveyorId', '==', surveyorId)
       .get();

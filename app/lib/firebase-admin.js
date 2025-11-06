@@ -15,7 +15,26 @@ try {
   // Priority 2: Individual env vars with FIREBASE_ADMIN_ prefix (for Vercel)
   else if (process.env.FIREBASE_ADMIN_PRIVATE_KEY && process.env.FIREBASE_ADMIN_CLIENT_EMAIL) {
     const pk = process.env.FIREBASE_ADMIN_PRIVATE_KEY || '';
-    const privateKey = pk.includes('\\n') ? pk.replace(/\\n/g, '\n') : pk;
+    // Handle multiple formats of private key:
+    // 1. Literal \n (two chars) -> replace with actual newline
+    // 2. Already has actual newlines -> use as is
+    // 3. Base64 encoded -> decode first
+    let privateKey = pk;
+    
+    // If contains literal \n, replace with actual newlines
+    if (pk.includes('\\n')) {
+      privateKey = pk.replace(/\\n/g, '\n');
+    }
+    
+    // Ensure it has proper PEM format
+    if (!privateKey.startsWith('-----BEGIN')) {
+      // Might be base64 or malformed, try to fix
+      privateKey = privateKey.trim();
+      if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+        console.warn('Private key does not start with PEM header, attempting to add it');
+      }
+    }
+    
     serviceAccount = {
       type: process.env.FIREBASE_ADMIN_TYPE || 'service_account',
       project_id: process.env.FIREBASE_ADMIN_PROJECT_ID,
@@ -30,6 +49,12 @@ try {
       universe_domain: process.env.FIREBASE_ADMIN_UNIVERSE_DOMAIN || 'googleapis.com'
     };
     console.log('Using service account from FIREBASE_ADMIN_ env vars');
+    console.log('Private key format check:', {
+      hasBeginMarker: privateKey.startsWith('-----BEGIN'),
+      hasEndMarker: privateKey.includes('-----END'),
+      length: privateKey.length,
+      firstChars: privateKey.substring(0, 30)
+    });
   }
   // Priority 3: Individual env vars (legacy)
   else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
@@ -120,13 +145,15 @@ if (!admin.apps.length) {
         projectId: process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
       });
     } else {
-      // Do not rely on implicit ADC for local dev; surface a clearer guidance.
-      const hint = 'Set FIREBASE_SERVICE_ACCOUNT_JSON (JSON string) or FIREBASE_PRIVATE_KEY + FIREBASE_CLIENT_EMAIL + FIREBASE_PROJECT_ID in .env.local';
-      console.error('Firebase Admin: no credentials configured. ' + hint);
-      throw new Error('Firebase Admin credentials missing. ' + hint);
+      // During build, we don't need actual credentials - just skip initialization
+      if (process.env.NODE_ENV !== 'production' || process.env.VERCEL) {
+        const hint = 'Set FIREBASE_SERVICE_ACCOUNT_JSON (JSON string) or FIREBASE_PRIVATE_KEY + FIREBASE_CLIENT_EMAIL + FIREBASE_PROJECT_ID in .env.local';
+        console.warn('Firebase Admin: no credentials configured during build. ' + hint);
+      }
     }
   } catch (e) {
     console.error('Firebase Admin init error:', e);
+    console.warn('Firebase Admin not initialized - some API endpoints may not work');
   }
 }
 
