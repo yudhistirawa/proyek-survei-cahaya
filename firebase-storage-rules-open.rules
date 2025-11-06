@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Firebase Storage Rules yang terbuka untuk testing
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Izinkan semua operasi untuk semua user (HANYA UNTUK TESTING!)
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

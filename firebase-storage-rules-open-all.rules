@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Firebase Storage Rules - OPEN FOR DEVELOPMENT (NOT FOR PRODUCTION)
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow everything for development
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

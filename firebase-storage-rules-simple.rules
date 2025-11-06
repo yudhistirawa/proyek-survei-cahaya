@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Firebase Storage Rules yang sederhana dan fleksibel
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Izinkan upload dan download untuk semua user yang terautentikasi
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URGENT CORS Test - Firebase Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        .urgent {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 URGENT CORS Test - Firebase Storage</h1>
+        <p><strong>Status:</strong> CORS Error Detected - Immediate Action Required</p>
+
+        <div class="test-section warning">
+            <h3>⚠️ CRITICAL ISSUE DETECTED</h3>
+            <p><strong>Error:</strong> "Response to preflight request doesn't pass access control check"</p>
+            <p><strong>Bucket:</strong> aplikasi-survei-lampu-jalan.appspot.com</p>
+            <p><strong>Origin:</strong> <span id="currentOrigin"></span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Test 1: CORS Preflight Request (CRITICAL)</h3>
+            <p>Test ini akan mengirim OPTIONS request untuk memeriksa CORS headers.</p>
+            <button onclick="testCorsPreflight()">🚨 Test CORS Preflight (URGENT)</button>
+            <div id="preflightResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📤 Test 2: Direct Upload Test</h3>
+            <p>Test ini akan mencoba upload file langsung ke Firebase Storage.</p>
+            <input type="file" id="testFile" accept="image/*" style="margin: 10px 0; padding: 10px; border: 2px solid #dc3545;" />
+            <button onclick="testDirectUpload()">📤 Test Direct Upload</button>
+            <div id="uploadResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test 3: Firebase Storage API Test</h3>
+            <p>Test ini akan melakukan test langsung ke Firebase Storage API.</p>
+            <button onclick="testFirebaseAPI()">🔧 Test Firebase API</button>
+            <div id="apiResult" class="log"></div>
+        </div>
+
+        <div class="test-section urgent">
+            <h3>📊 URGENT Test Results</h3>
+            <div id="summaryResult" class="log"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🚨 IMMEDIATE ACTIONS REQUIRED</h3>
+            <p><strong>1. Run CORS Fix Script:</strong></p>
+            <code>fix-cors-aggressive.bat</code>
+            <p><strong>2. Restart Next.js Server:</strong></p>
+            <code>npm run dev</code>
+            <p><strong>3. Clear Browser Cache:</strong></p>
+            <code>Ctrl+Shift+Delete</code>
+            <p><strong>4. Wait 30 minutes</strong> for CORS propagation</p>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.getElementById('currentOrigin').textContent = window.location.origin;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        let testResults = {
+            preflight: false,
+            upload: false,
+            api: false
+        };
+
+        function log(elementId, message, isError = false, isUrgent = false) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            element.scrollTop = element.scrollHeight;
+            
+            if (isUrgent) {
+                element.style.backgroundColor = '#f8d7da';
+                element.style.color = '#721c24';
+                element.style.fontWeight = 'bold';
+            } else if (isError) {
+                element.style.backgroundColor = '#f8d7da';
+                element.style.color = '#721c24';
+            } else {
+                element.style.backgroundColor = '#d4edda';
+                element.style.color = '#155724';
+            }
+        }
+
+        function testCorsPreflight() {
+            const resultDiv = document.getElementById('preflightResult');
+            resultDiv.textContent = '';
+            
+            log('preflightResult', '🚨 URGENT: Testing CORS preflight request...', false, true);
+            
+            // Test URL untuk Firebase Storage
+            const testUrl = 'https://firebasestorage.googleapis.com/v0/b/aplikasi-survei-lampu-jalan.appspot.com/o?name=test-cors.txt';
+            
+            log('preflightResult', `🌐 Testing URL: ${testUrl}`);
+            log('preflightResult', `📍 Origin: ${window.location.origin}`);
+            
+            fetch(testUrl, {
+                method: 'OPTIONS',
+                mode: 'cors',
+                headers: {
+                    'Origin': window.location.origin,
+                    'Access-Control-Request-Method': 'GET',
+                    'Access-Control-Request-Headers': 'Content-Type, Authorization'
+                }
+            })
+            .then(response => {
+                log('preflightResult', `✅ Preflight request successful!`);
+                log('preflightResult', `Status: ${response.status}`);
+                log('preflightResult', `Status Text: ${response.statusText}`);
+                
+                // Check CORS headers
+                const corsHeaders = [
+                    'access-control-allow-origin',
+                    'access-control-allow-methods',
+                    'access-control-allow-headers',
+                    'access-control-max-age'
+                ];
+                
+                corsHeaders.forEach(header => {
+                    const value = response.headers.get(header);
+                    if (value) {
+                        log('preflightResult', `✅ ${header}: ${value}`);
+                    } else {
+                        log('preflightResult', `❌ ${header}: NOT FOUND`, true);
+                    }
+                });
+                
+                testResults.preflight = true;
+                updateSummary();
+            })
+            .catch(error => {
+                log('preflightResult', `❌ CRITICAL: Preflight request failed!`, true, true);
+                log('preflightResult', `Error: ${error.message}`, true, true);
+                log('preflightResult', `🚨 CORS configuration needs immediate attention!`, true, true);
+                testResults.preflight = false;
+                updateSummary();
+            });
+        }
+
+        async function testDirectUpload() {
+            const resultDiv = document.getElementById('uploadResult');
+            const fileInput = document.getElementById('testFile');
+            resultDiv.textContent = '';
+            
+            if (!fileInput.files[0]) {
+                log('uploadResult', '❌ Please select a file first!', true);
+                return;
+            }
+            
+            log('uploadResult', '🚨 Testing direct file upload...', false, true);
+            log('uploadResult', `File: ${fileInput.files[0].name} (${fileInput.files[0].size} bytes)`);
+            
+            try {
+                // Convert file to WebP
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = async (e) => {
+                    img.onload = async () => {
+                        try {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            
+                            canvas.toBlob(async (blob) => {
+                                if (blob) {
+                                    log('uploadResult', '✅ File converted to WebP successfully');
+                                    log('uploadResult', `WebP size: ${blob.size} bytes`);
+                                    
+                                    // Try to upload to Firebase Storage
+                                    try {
+                                        // Import Firebase
+                                        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+                                        const { getStorage, ref, uploadBytes, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js');
+                                        
+                                        // Initialize Firebase
+                                        const firebaseConfig = {
+                                            storageBucket: "aplikasi-survei-lampu-jalan.appspot.com"
+                                        };
+                                        
+                                        const app = initializeApp(firebaseConfig);
+                                        const storage = getStorage(app);
+                                        
+                                        // Create unique filename
+                                        const timestamp = Date.now();
+                                        const randomId = Math.random().toString(36).substring(2, 15);
+                                        const filename = `urgent_test_${timestamp}_${randomId}.webp`;
+                                        const storageRef = ref(storage, `test/${filename}`);
+                                        
+                                        log('uploadResult', `📁 Uploading to: test/${filename}`);
+                                        
+                                        // Upload file
+                                        const snapshot = await uploadBytes(storageRef, blob, {
+                                            contentType: 'image/webp'
+                                        });
+                                        
+                                        log('uploadResult', '✅ File uploaded successfully!');
+                                        
+                                        // Get download URL
+                                        const downloadURL = await getDownloadURL(snapshot.ref);
+                                        log('uploadResult', `🔗 Download URL: ${downloadURL}`);
+                                        
+                                        testResults.upload = true;
+                                        updateSummary();
+                                        
+                                    } catch (firebaseError) {
+                                        log('uploadResult', `❌ CRITICAL: Firebase upload failed!`, true, true);
+                                        log('uploadResult', `Error: ${firebaseError.message}`, true, true);
+                                        testResults.upload = false;
+                                        updateSummary();
+                                    }
+                                } else {
+                                    log('uploadResult', '❌ Failed to convert to WebP', true);
+                                    testResults.upload = false;
+                                    updateSummary();
+                                }
+                            }, 'image/webp', 0.8);
+                        } catch (error) {
+                            log('uploadResult', `❌ Error processing image: ${error.message}`, true);
+                            testResults.upload = false;
+                            updateSummary();
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+                
+            } catch (error) {
+                log('uploadResult', `❌ Upload test failed: ${error.message}`, true);
+                testResults.upload = false;
+                updateSummary();
+            }
+        }
+
+        function testFirebaseAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.textContent = '';
+            
+            log('apiResult', '🔧 Testing Firebase Storage API...');
+            
+            // Test Firebase Storage API directly
+            const testUrl = 'https://firebasestorage.googleapis.com/v0/b/aplikasi-survei-lampu-jalan.appspot.com/o';
+            
+            fetch(testUrl, {
+                method: 'GET',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                log('apiResult', '✅ Firebase Storage API accessible!');
+                log('apiResult', `Status: ${response.status}`);
+                log('apiResult', `Status Text: ${response.statusText}`);
+                
+                // Check for CORS headers
+                const corsOrigin = response.headers.get('access-control-allow-origin');
+                if (corsOrigin) {
+                    log('apiResult', `✅ CORS Origin header found: ${corsOrigin}`);
+                    testResults.api = true;
+                } else {
+                    log('apiResult', '⚠️ CORS Origin header not found', true);
+                    testResults.api = false;
+                }
+                updateSummary();
+            })
+            .catch(error => {
+                log('apiResult', `❌ Firebase Storage test failed: ${error.message}`, true);
+                testResults.api = false;
+                updateSummary();
+            });
+        }
+
+        function updateSummary() {
+            const summaryDiv = document.getElementById('summaryResult');
+            const passed = Object.values(testResults).filter(Boolean).length;
+            const total = Object.keys(testResults).length;
+            
+            summaryDiv.textContent = '';
+            summaryDiv.textContent += `🚨 URGENT CORS Test Summary\n`;
+            summaryDiv.textContent += `==========================\n`;
+            summaryDiv.textContent += `✅ Passed: ${passed}/${total}\n`;
+            summaryDiv.textContent += `❌ Failed: ${total - passed}/${total}\n\n`;
+            
+            summaryDiv.textContent += `🔍 Detailed Results:\n`;
+            summaryDiv.textContent += `• Preflight Test: ${testResults.preflight ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Upload Test: ${testResults.upload ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• API Test: ${testResults.api ? '✅ PASS' : '❌ FAIL'}\n\n`;
+            
+            if (passed === total) {
+                summaryDiv.textContent += `🎉 All tests passed! CORS is working correctly.\n`;
+                summaryDiv.style.backgroundColor = '#d4edda';
+                summaryDiv.style.color = '#155724';
+            } else {
+                summaryDiv.textContent += `🚨 CRITICAL: CORS configuration needs immediate attention!\n`;
+                summaryDiv.textContent += `📋 Required Actions:\n`;
+                summaryDiv.textContent += `   1. Run fix-cors-aggressive.bat\n`;
+                summaryDiv.textContent += `   2. Restart Next.js server\n`;
+                summaryDiv.textContent += `   3. Clear browser cache\n`;
+                summaryDiv.textContent += `   4. Wait 30 minutes\n`;
+                summaryDiv.style.backgroundColor = '#f8d7da';
+                summaryDiv.style.color = '#721c24';
+            }
+        }
+
+        // Auto-run all tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('preflightResult', '🔄 Auto-running URGENT CORS tests...', false, true);
+                testCorsPreflight();
+                setTimeout(() => testFirebaseAPI(), 2000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

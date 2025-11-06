@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    // Properti 'version' HARUS di sini, jika ada
+    // "version": "es2020", // Contoh, versi ECMAScript yang Anda targetkan
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    // Pastikan ini ada jika Anda menggunakan React 19
+    "jsx": "react-jsx", // atau "react" untuk versi React yang lebih lama
+    "moduleResolution": "node",
+    "target": "es2020", // Atau versi ES yang sesuai
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs"],
+  "exclude": ["node_modules"]
+}

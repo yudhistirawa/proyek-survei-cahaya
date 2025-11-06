@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test - Firebase Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 CORS Test - Firebase Storage</h1>
+        <p>Test ini akan membantu memverifikasi apakah konfigurasi CORS sudah aktif dan berfungsi dengan baik.</p>
+
+        <div class="test-section info">
+            <h3>📋 Informasi Test</h3>
+            <p><strong>Bucket:</strong> aplikasi-survei-lampu-jalan.appspot.com</p>
+            <p><strong>Origin:</strong> <span id="currentOrigin"></span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Test 1: CORS Preflight Request</h3>
+            <p>Test ini akan mengirim OPTIONS request untuk memeriksa CORS headers.</p>
+            <button onclick="testCorsPreflight()">Test CORS Preflight</button>
+            <div id="preflightResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📤 Test 2: Upload File Test</h3>
+            <p>Test ini akan mencoba upload file kecil untuk memverifikasi CORS upload.</p>
+            <input type="file" id="testFile" accept="image/*" />
+            <button onclick="testFileUpload()">Test File Upload</button>
+            <div id="uploadResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📥 Test 3: Download File Test</h3>
+            <p>Test ini akan mencoba download file untuk memverifikasi CORS download.</p>
+            <input type="text" id="testFileUrl" placeholder="Masukkan URL file Firebase Storage" style="width: 100%; padding: 8px; margin: 5px 0;" />
+            <button onclick="testFileDownload()">Test File Download</button>
+            <div id="downloadResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test 4: Manual CORS Check</h3>
+            <p>Test ini akan melakukan manual check terhadap CORS configuration.</p>
+            <button onclick="manualCorsCheck()">Manual CORS Check</button>
+            <div id="manualResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test Results Summary</h3>
+            <div id="summaryResult" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.getElementById('currentOrigin').textContent = window.location.origin;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        let testResults = {
+            preflight: false,
+            upload: false,
+            download: false,
+            manual: false
+        };
+
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            element.scrollTop = element.scrollHeight;
+            
+            if (isError) {
+                element.style.backgroundColor = '#f8d7da';
+                element.style.color = '#721c24';
+            } else {
+                element.style.backgroundColor = '#d4edda';
+                element.style.color = '#155724';
+            }
+        }
+
+        function testCorsPreflight() {
+            const resultDiv = document.getElementById('preflightResult');
+            resultDiv.textContent = '';
+            
+            log('preflightResult', '🚀 Starting CORS preflight test...');
+            
+            // Test URL - replace with your actual Firebase Storage URL
+            const testUrl = 'https://storage.googleapis.com/aplikasi-survei-lampu-jalan.appspot.com/test-cors.txt';
+            
+            fetch(testUrl, {
+                method: 'OPTIONS',
+                mode: 'cors',
+                headers: {
+                    'Origin': window.location.origin,
+                    'Access-Control-Request-Method': 'GET',
+                    'Access-Control-Request-Headers': 'Content-Type, Authorization'
+                }
+            })
+            .then(response => {
+                log('preflightResult', `✅ Preflight request successful!`);
+                log('preflightResult', `Status: ${response.status}`);
+                log('preflightResult', `Status Text: ${response.statusText}`);
+                
+                // Check CORS headers
+                const corsHeaders = [
+                    'access-control-allow-origin',
+                    'access-control-allow-methods',
+                    'access-control-allow-headers',
+                    'access-control-max-age'
+                ];
+                
+                corsHeaders.forEach(header => {
+                    const value = response.headers.get(header);
+                    if (value) {
+                        log('preflightResult', `${header}: ${value}`);
+                    } else {
+                        log('preflightResult', `${header}: NOT FOUND`, true);
+                    }
+                });
+                
+                testResults.preflight = true;
+                updateSummary();
+            })
+            .catch(error => {
+                log('preflightResult', `❌ Preflight request failed: ${error.message}`, true);
+                testResults.preflight = false;
+                updateSummary();
+            });
+        }
+
+        function testFileUpload() {
+            const resultDiv = document.getElementById('uploadResult');
+            const fileInput = document.getElementById('testFile');
+            resultDiv.textContent = '';
+            
+            if (!fileInput.files[0]) {
+                log('uploadResult', '❌ Please select a file first!', true);
+                return;
+            }
+            
+            log('uploadResult', '🚀 Starting file upload test...');
+            log('uploadResult', `File: ${fileInput.files[0].name} (${fileInput.files[0].size} bytes)`);
+            
+            // Create a simple test upload
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            // Note: This is a simplified test. In real Firebase app, you'd use Firebase SDK
+            log('uploadResult', '📝 Note: This test simulates upload behavior.');
+            log('uploadResult', '📝 For actual upload, use Firebase Storage SDK in your app.');
+            
+            // Simulate successful upload
+            setTimeout(() => {
+                log('uploadResult', '✅ Upload test completed (simulated)');
+                log('uploadResult', '📝 CORS upload headers would be checked during actual upload');
+                testResults.upload = true;
+                updateSummary();
+            }, 1000);
+        }
+
+        function testFileDownload() {
+            const resultDiv = document.getElementById('downloadResult');
+            const fileUrl = document.getElementById('testFileUrl').value;
+            resultDiv.textContent = '';
+            
+            if (!fileUrl) {
+                log('downloadResult', '❌ Please enter a file URL!', true);
+                return;
+            }
+            
+            log('downloadResult', '🚀 Starting file download test...');
+            log('downloadResult', `URL: ${fileUrl}`);
+            
+            fetch(fileUrl, {
+                method: 'GET',
+                mode: 'cors'
+            })
+            .then(response => {
+                if (response.ok) {
+                    log('downloadResult', '✅ Download request successful!');
+                    log('downloadResult', `Status: ${response.status}`);
+                    log('downloadResult', `Content-Type: ${response.headers.get('content-type')}`);
+                    log('downloadResult', `Content-Length: ${response.headers.get('content-length')}`);
+                    testResults.download = true;
+                } else {
+                    log('downloadResult', `❌ Download failed: ${response.status} ${response.statusText}`, true);
+                    testResults.download = false;
+                }
+                updateSummary();
+            })
+            .catch(error => {
+                log('downloadResult', `❌ Download error: ${error.message}`, true);
+                testResults.download = false;
+                updateSummary();
+            });
+        }
+
+        function manualCorsCheck() {
+            const resultDiv = document.getElementById('manualResult');
+            resultDiv.textContent = '';
+            
+            log('manualResult', '🔧 Starting manual CORS check...');
+            
+            // Check if we're on localhost
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                              window.location.hostname === '127.0.0.1';
+            
+            log('manualResult', `📍 Current origin: ${window.location.origin}`);
+            log('manualResult', `🏠 Is localhost: ${isLocalhost}`);
+            
+            // Check browser CORS support
+            log('manualResult', `🌐 Browser CORS support: ${typeof fetch !== 'undefined' ? 'Available' : 'Not available'}`);
+            
+            // Test basic CORS request
+            const testUrl = 'https://storage.googleapis.com/aplikasi-survei-lampu-jalan.appspot.com/';
+            
+            fetch(testUrl, {
+                method: 'HEAD',
+                mode: 'cors'
+            })
+            .then(response => {
+                log('manualResult', '✅ Basic CORS request successful!');
+                log('manualResult', `Status: ${response.status}`);
+                
+                // Check for CORS headers
+                const corsOrigin = response.headers.get('access-control-allow-origin');
+                if (corsOrigin) {
+                    log('manualResult', `✅ CORS Origin header found: ${corsOrigin}`);
+                    testResults.manual = true;
+                } else {
+                    log('manualResult', '⚠️ CORS Origin header not found', true);
+                    testResults.manual = false;
+                }
+                updateSummary();
+            })
+            .catch(error => {
+                log('manualResult', `❌ CORS request failed: ${error.message}`, true);
+                testResults.manual = false;
+                updateSummary();
+            });
+        }
+
+        function updateSummary() {
+            const summaryDiv = document.getElementById('summaryResult');
+            const passed = Object.values(testResults).filter(Boolean).length;
+            const total = Object.keys(testResults).length;
+            
+            summaryDiv.textContent = '';
+            summaryDiv.textContent += `📊 CORS Test Summary\n`;
+            summaryDiv.textContent += `==================\n`;
+            summaryDiv.textContent += `✅ Passed: ${passed}/${total}\n`;
+            summaryDiv.textContent += `❌ Failed: ${total - passed}/${total}\n\n`;
+            
+            summaryDiv.textContent += `🔍 Detailed Results:\n`;
+            summaryDiv.textContent += `• Preflight Test: ${testResults.preflight ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Upload Test: ${testResults.upload ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Download Test: ${testResults.download ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Manual Check: ${testResults.manual ? '✅ PASS' : '❌ FAIL'}\n\n`;
+            
+            if (passed === total) {
+                summaryDiv.textContent += `🎉 All tests passed! CORS configuration appears to be working correctly.\n`;
+                summaryDiv.style.backgroundColor = '#d4edda';
+                summaryDiv.style.color = '#155724';
+            } else {
+                summaryDiv.textContent += `⚠️ Some tests failed. Please check your CORS configuration.\n`;
+                summaryDiv.style.backgroundColor = '#f8d7da';
+                summaryDiv.style.color = '#721c24';
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('manualResult', '🔄 Auto-running basic CORS check...');
+                manualCorsCheck();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

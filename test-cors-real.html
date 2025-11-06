@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real CORS Test - Firebase Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Real CORS Test - Firebase Storage</h1>
+        <p>Test ini akan melakukan upload langsung ke Firebase Storage untuk memverifikasi CORS.</p>
+
+        <div class="test-section info">
+            <h3>📋 Informasi Test</h3>
+            <p><strong>Bucket:</strong> aplikasi-survei-lampu-jalan.appspot.com</p>
+            <p><strong>Origin:</strong> <span id="currentOrigin"></span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Test 1: CORS Preflight Request</h3>
+            <p>Test ini akan mengirim OPTIONS request untuk memeriksa CORS headers.</p>
+            <button onclick="testCorsPreflight()">Test CORS Preflight</button>
+            <div id="preflightResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📤 Test 2: Real File Upload Test</h3>
+            <p>Test ini akan mencoba upload file langsung ke Firebase Storage.</p>
+            <input type="file" id="testFile" accept="image/*" />
+            <button onclick="testRealUpload()">Test Real Upload</button>
+            <div id="uploadResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📥 Test 3: Download File Test</h3>
+            <p>Test ini akan mencoba download file untuk memverifikasi CORS download.</p>
+            <input type="text" id="testFileUrl" placeholder="Masukkan URL file Firebase Storage" style="width: 100%; padding: 8px; margin: 5px 0;" />
+            <button onclick="testFileDownload()">Test File Download</button>
+            <div id="downloadResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test 4: Firebase Storage Direct Test</h3>
+            <p>Test ini akan melakukan test langsung ke Firebase Storage API.</p>
+            <button onclick="testFirebaseStorage()">Test Firebase Storage</button>
+            <div id="firebaseResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test Results Summary</h3>
+            <div id="summaryResult" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.getElementById('currentOrigin').textContent = window.location.origin;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        let testResults = {
+            preflight: false,
+            upload: false,
+            download: false,
+            firebase: false
+        };
+
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            element.scrollTop = element.scrollHeight;
+            
+            if (isError) {
+                element.style.backgroundColor = '#f8d7da';
+                element.style.color = '#721c24';
+            } else {
+                element.style.backgroundColor = '#d4edda';
+                element.style.color = '#155724';
+            }
+        }
+
+        function testCorsPreflight() {
+            const resultDiv = document.getElementById('preflightResult');
+            resultDiv.textContent = '';
+            
+            log('preflightResult', '🚀 Starting CORS preflight test...');
+            
+            // Test URL untuk Firebase Storage
+            const testUrl = 'https://firebasestorage.googleapis.com/v0/b/aplikasi-survei-lampu-jalan.appspot.com/o?name=test-cors.txt';
+            
+            fetch(testUrl, {
+                method: 'OPTIONS',
+                mode: 'cors',
+                headers: {
+                    'Origin': window.location.origin,
+                    'Access-Control-Request-Method': 'GET',
+                    'Access-Control-Request-Headers': 'Content-Type, Authorization'
+                }
+            })
+            .then(response => {
+                log('preflightResult', `✅ Preflight request successful!`);
+                log('preflightResult', `Status: ${response.status}`);
+                log('preflightResult', `Status Text: ${response.statusText}`);
+                
+                // Check CORS headers
+                const corsHeaders = [
+                    'access-control-allow-origin',
+                    'access-control-allow-methods',
+                    'access-control-allow-headers',
+                    'access-control-max-age'
+                ];
+                
+                corsHeaders.forEach(header => {
+                    const value = response.headers.get(header);
+                    if (value) {
+                        log('preflightResult', `${header}: ${value}`);
+                    } else {
+                        log('preflightResult', `${header}: NOT FOUND`, true);
+                    }
+                });
+                
+                testResults.preflight = true;
+                updateSummary();
+            })
+            .catch(error => {
+                log('preflightResult', `❌ Preflight request failed: ${error.message}`, true);
+                testResults.preflight = false;
+                updateSummary();
+            });
+        }
+
+        async function testRealUpload() {
+            const resultDiv = document.getElementById('uploadResult');
+            const fileInput = document.getElementById('testFile');
+            resultDiv.textContent = '';
+            
+            if (!fileInput.files[0]) {
+                log('uploadResult', '❌ Please select a file first!', true);
+                return;
+            }
+            
+            log('uploadResult', '🚀 Starting real file upload test...');
+            log('uploadResult', `File: ${fileInput.files[0].name} (${fileInput.files[0].size} bytes)`);
+            
+            try {
+                // Convert file to WebP
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = async (e) => {
+                    img.onload = async () => {
+                        try {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            
+                            canvas.toBlob(async (blob) => {
+                                if (blob) {
+                                    log('uploadResult', '✅ File converted to WebP successfully');
+                                    log('uploadResult', `WebP size: ${blob.size} bytes`);
+                                    
+                                    // Try to upload to Firebase Storage
+                                    try {
+                                        // Import Firebase
+                                        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+                                        const { getStorage, ref, uploadBytes, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js');
+                                        
+                                        // Initialize Firebase (you'll need to add your config)
+                                        const firebaseConfig = {
+                                            // Add your Firebase config here
+                                            storageBucket: "aplikasi-survei-lampu-jalan.appspot.com"
+                                        };
+                                        
+                                        const app = initializeApp(firebaseConfig);
+                                        const storage = getStorage(app);
+                                        
+                                        // Create unique filename
+                                        const timestamp = Date.now();
+                                        const randomId = Math.random().toString(36).substring(2, 15);
+                                        const filename = `test_${timestamp}_${randomId}.webp`;
+                                        const storageRef = ref(storage, `test/${filename}`);
+                                        
+                                        log('uploadResult', `📁 Uploading to: test/${filename}`);
+                                        
+                                        // Upload file
+                                        const snapshot = await uploadBytes(storageRef, blob, {
+                                            contentType: 'image/webp'
+                                        });
+                                        
+                                        log('uploadResult', '✅ File uploaded successfully!');
+                                        
+                                        // Get download URL
+                                        const downloadURL = await getDownloadURL(snapshot.ref);
+                                        log('uploadResult', `🔗 Download URL: ${downloadURL}`);
+                                        
+                                        testResults.upload = true;
+                                        updateSummary();
+                                        
+                                    } catch (firebaseError) {
+                                        log('uploadResult', `❌ Firebase upload failed: ${firebaseError.message}`, true);
+                                        testResults.upload = false;
+                                        updateSummary();
+                                    }
+                                } else {
+                                    log('uploadResult', '❌ Failed to convert to WebP', true);
+                                    testResults.upload = false;
+                                    updateSummary();
+                                }
+                            }, 'image/webp', 0.8);
+                        } catch (error) {
+                            log('uploadResult', `❌ Error processing image: ${error.message}`, true);
+                            testResults.upload = false;
+                            updateSummary();
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+                
+            } catch (error) {
+                log('uploadResult', `❌ Upload test failed: ${error.message}`, true);
+                testResults.upload = false;
+                updateSummary();
+            }
+        }
+
+        function testFileDownload() {
+            const resultDiv = document.getElementById('downloadResult');
+            const fileUrl = document.getElementById('testFileUrl').value;
+            resultDiv.textContent = '';
+            
+            if (!fileUrl) {
+                log('downloadResult', '❌ Please enter a file URL!', true);
+                return;
+            }
+            
+            log('downloadResult', '🚀 Starting file download test...');
+            log('downloadResult', `URL: ${fileUrl}`);
+            
+            fetch(fileUrl, {
+                method: 'GET',
+                mode: 'cors'
+            })
+            .then(response => {
+                if (response.ok) {
+                    log('downloadResult', '✅ Download request successful!');
+                    log('downloadResult', `Status: ${response.status}`);
+                    log('downloadResult', `Content-Type: ${response.headers.get('content-type')}`);
+                    log('downloadResult', `Content-Length: ${response.headers.get('content-length')}`);
+                    testResults.download = true;
+                } else {
+                    log('downloadResult', `❌ Download failed: ${response.status} ${response.statusText}`, true);
+                    testResults.download = false;
+                }
+                updateSummary();
+            })
+            .catch(error => {
+                log('downloadResult', `❌ Download error: ${error.message}`, true);
+                testResults.download = false;
+                updateSummary();
+            });
+        }
+
+        function testFirebaseStorage() {
+            const resultDiv = document.getElementById('firebaseResult');
+            resultDiv.textContent = '';
+            
+            log('firebaseResult', '🔧 Starting Firebase Storage direct test...');
+            
+            // Test Firebase Storage API directly
+            const testUrl = 'https://firebasestorage.googleapis.com/v0/b/aplikasi-survei-lampu-jalan.appspot.com/o';
+            
+            fetch(testUrl, {
+                method: 'GET',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                log('firebaseResult', '✅ Firebase Storage API accessible!');
+                log('firebaseResult', `Status: ${response.status}`);
+                log('firebaseResult', `Status Text: ${response.statusText}`);
+                
+                // Check for CORS headers
+                const corsOrigin = response.headers.get('access-control-allow-origin');
+                if (corsOrigin) {
+                    log('firebaseResult', `✅ CORS Origin header found: ${corsOrigin}`);
+                    testResults.firebase = true;
+                } else {
+                    log('firebaseResult', '⚠️ CORS Origin header not found', true);
+                    testResults.firebase = false;
+                }
+                updateSummary();
+            })
+            .catch(error => {
+                log('firebaseResult', `❌ Firebase Storage test failed: ${error.message}`, true);
+                testResults.firebase = false;
+                updateSummary();
+            });
+        }
+
+        function updateSummary() {
+            const summaryDiv = document.getElementById('summaryResult');
+            const passed = Object.values(testResults).filter(Boolean).length;
+            const total = Object.keys(testResults).length;
+            
+            summaryDiv.textContent = '';
+            summaryDiv.textContent += `📊 CORS Test Summary\n`;
+            summaryDiv.textContent += `==================\n`;
+            summaryDiv.textContent += `✅ Passed: ${passed}/${total}\n`;
+            summaryDiv.textContent += `❌ Failed: ${total - passed}/${total}\n\n`;
+            
+            summaryDiv.textContent += `🔍 Detailed Results:\n`;
+            summaryDiv.textContent += `• Preflight Test: ${testResults.preflight ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Upload Test: ${testResults.upload ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Download Test: ${testResults.download ? '✅ PASS' : '❌ FAIL'}\n`;
+            summaryDiv.textContent += `• Firebase Storage Test: ${testResults.firebase ? '✅ PASS' : '❌ FAIL'}\n\n`;
+            
+            if (passed === total) {
+                summaryDiv.textContent += `🎉 All tests passed! CORS configuration is working correctly.\n`;
+                summaryDiv.style.backgroundColor = '#d4edda';
+                summaryDiv.style.color = '#155724';
+            } else {
+                summaryDiv.textContent += `⚠️ Some tests failed. Please check your CORS configuration.\n`;
+                summaryDiv.style.backgroundColor = '#f8d7da';
+                summaryDiv.style.color = '#721c24';
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('firebaseResult', '🔄 Auto-running Firebase Storage test...');
+                testFirebaseStorage();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

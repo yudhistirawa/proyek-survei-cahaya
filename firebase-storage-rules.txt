@@ -1,0 +1,25 @@
+# Firebase Storage Rules untuk mengizinkan upload KMZ files
+# Simpan file ini sebagai "storage.rules" di root project Firebase
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Izinkan upload file KMZ ke folder kmz
+    match /kmz/{allPaths=**} {
+      allow read, write: if true; // Untuk testing - izinkan semua akses
+    }
+    
+    // Atau gunakan rules yang lebih aman:
+    // match /kmz/{allPaths=**} {
+    //   allow read: if true;
+    //   allow write: if request.resource.size < 50 * 1024 * 1024 // Max 50MB
+    //                && request.resource.contentType.matches('application/vnd.google-earth.kmz')
+    //                && request.auth != null; // Harus login
+    // }
+    
+    // Default rule - deny all
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

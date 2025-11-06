@@ -1,0 +1,1451 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, UserCircle, LayoutDashboard, Home, ClipboardList, Users, CheckCircle, Folder, LogOut, User, Mail, Phone, MapPin, FileText, UserPlus, Eye, EyeOff, ChevronDown, Edit, Trash2, X, Camera, Clock, AlertTriangle, Download, FolderOpen, Zap, Lightbulb, Building, Cpu, Users as UsersIcon } from 'lucide-react';
+import { logout, onAuthStateChange, getUserData, registerUser, getAllUsers, deleteUser } from '../../lib/auth';
+import SurveyDetailModal from '../modals/SurveyDetailModal';
+import SurveyValidationModal from '../modals/SurveyValidationModal';
+import SurveyEditModal from '../modals/SurveyEditModal';
+import TaskDetailModal from '../modals/TaskDetailModal';
+
+const menuItems = [
+  { label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+  { label: 'Home', icon: <Home size={20} /> },
+  { label: 'Panel Admin Pengukuran', icon: <Zap size={20} /> },
+  { label: 'Distribusi Tugas', icon: <ClipboardList size={20} /> },
+  { label: 'Manajemen Pengguna', icon: <Users size={20} /> },
+  { label: 'Validasi Data Survey', icon: <CheckCircle size={20} /> },
+  { label: 'Data Survey Valid', icon: <Folder size={20} /> },
+  { label: 'Data Tugas', icon: <ClipboardList size={20} /> },
+  { label: 'Database Propose', icon: <Folder size={20} /> },
+];
+
+const mainButtons = [
+  { label: 'Panel Admin Pengukuran', icon: <Zap size={48} className="text-blue-500" /> },
+  { label: 'Distribusi Tugas', icon: <ClipboardList size={48} className="text-yellow-500" /> },
+  { label: 'Manajemen Pengguna', icon: <Users size={48} className="text-purple-600" /> },
+  { label: 'Validasi Data Survey', icon: <CheckCircle size={48} className="text-green-500" /> },
+  { label: 'Data Survey Valid', icon: <Folder size={48} className="text-pink-500" /> },
+];
+
+const PanelAdminSurveyLapangan = () => {
+  const [activeMenu, setActiveMenu] = useState('Dashboard');
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const dropdownRef = useRef(null);
+
+  // Form states for user registration
+  const [showAddUserForm, setShowAddUserForm] = useState(false);
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    role: 'petugas_surveyor',
+    password: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
+
+  // User management states
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserDetail, setShowUserDetail] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+
+  // Task assignment states
+  const [showTaskAssignment, setShowTaskAssignment] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskType, setTaskType] = useState(''); // 'existing' or 'propose'
+  const [selectedSurveyor, setSelectedSurveyor] = useState(null);
+  const [surveyorUsers, setSurveyorUsers] = useState([]);
+  const [loadingSurveyors, setLoadingSurveyors] = useState(false);
+
+  // Propose data loading states
+  const [proposeData, setProposeData] = useState([]);
+  const [loadingProposeData, setLoadingProposeData] = useState(false);
+  const [proposeDataText, setProposeDataText] = useState('');
+  const [showDataSelectionModal, setShowDataSelectionModal] = useState(false);
+  const [availableData, setAvailableData] = useState([]);
+  const [selectedDataItems, setSelectedDataItems] = useState([]);
+
+  // Survey validation states
+  const [surveys, setSurveys] = useState([]);
+  const [loadingSurveys, setLoadingSurveys] = useState(false);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [showSurveyDetail, setShowSurveyDetail] = useState(false);
+  const [showSurveyValidation, setShowSurveyValidation] = useState(false);
+  const [showSurveyEdit, setShowSurveyEdit] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Valid surveys states
+  const [validSurveys, setValidSurveys] = useState([]);
+  const [loadingValidSurveys, setLoadingValidSurveys] = useState(false);
+  const [selectedSurveyType, setSelectedSurveyType] = useState(null);
+  const [exportingData, setExportingData] = useState(false);
+
+  // Task history states
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
+  const [taskSearchTerm, setTaskSearchTerm] = useState('');
+
+  // Measurement reports states
+  const [measurementReports, setMeasurementReports] = useState([]);
+  const [loadingMeasurementReports, setLoadingMeasurementReports] = useState(false);
+  const [measurementFilters, setMeasurementFilters] = useState({
+    title: '',
+    surveyor: '',
+    date: '',
+    status: 'Semua'
+  });
+  const [showMeasurementFilters, setShowMeasurementFilters] = useState(false);
+
+  // Role options untuk form pendaftaran - hanya admin_survey dan petugas_surveyor
+  const roleOptionsForForm = [
+    { value: 'petugas_surveyor', label: 'Petugas Surveyor' },
+    { value: 'admin_survey', label: 'Admin Survey' }
+  ];
+
+  // Role options lengkap untuk display detail user
+  const roleOptions = [
+    { value: 'petugas_pengukuran', label: 'Petugas Pengukuran' },
+    { value: 'petugas_surveyor', label: 'Petugas Surveyor' },
+    { value: 'petugas_kemerataan_sinar', label: 'Petugas Kemerataan Sinar' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'admin_survey', label: 'Admin Survey' }
+  ];
+
+  const handleLogout = async () => {
+    try {
+      setShowUserDropdown(false);
+      
+      // Panggil fungsi logout dari auth.js
+      await logout();
+      
+      // Redirect ke halaman utama (yang akan menampilkan login)
+      window.location.href = '/';
+      
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Tetap redirect meskipun ada error
+      window.location.href = '/';
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleRoleSelect = (roleValue) => {
+    setFormData(prev => ({
+      ...prev,
+      role: roleValue
+    }));
+    setShowRoleDropdown(false);
+  };
+
+  const handleSubmitUser = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitMessage('');
+
+    try {
+      // Validasi form
+      if (!formData.username || !formData.email || !formData.password) {
+        throw new Error('Semua field harus diisi');
+      }
+
+      // Register user baru
+      await registerUser(formData.email, formData.password, {
+        username: formData.username,
+        displayName: formData.username,
+        role: formData.role,
+        createdBy: currentUser.uid
+      });
+
+      setSubmitMessage('Pengguna berhasil didaftarkan!');
+      
+      // Reset form
+      setFormData({
+        username: '',
+        email: '',
+        role: 'petugas_surveyor',
+        password: ''
+      });
+
+      // Refresh user list
+      loadUsers();
+
+      // Hide form after 2 seconds
+      setTimeout(() => {
+        setShowAddUserForm(false);
+        setSubmitMessage('');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error registering user:', error);
+      setSubmitMessage(error.message || 'Gagal mendaftarkan pengguna');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const allUsers = await getAllUsers();
+      // Filter hanya user dengan role admin_survey dan petugas_surveyor
+      const filteredUsers = allUsers.filter(user => 
+        user.role === 'admin_survey' || user.role === 'petugas_surveyor'
+      );
+      setUsers(filteredUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleViewUser = (user) => {
+    setSelectedUser(user);
+    setShowUserDetail(true);
+  };
+
+  const handleDeleteUser = async (user) => {
+    setUserToDelete(user);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await deleteUser(userToDelete.uid);
+      setUsers(users.filter(u => u.uid !== userToDelete.uid));
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Gagal menghapus pengguna: ' + error.message);
+    }
+  };
+
+  // Load surveyor users for task assignment
+  const loadSurveyorUsers = async () => {
+    setLoadingSurveyors(true);
+    try {
+      const allUsers = await getAllUsers();
+      // Filter hanya user dengan role petugas_surveyor
+      const surveyors = allUsers.filter(user => user.role === 'petugas_surveyor');
+      setSurveyorUsers(surveyors);
+    } catch (error) {
+      console.error('Error loading surveyors:', error);
+    } finally {
+      setLoadingSurveyors(false);
+    }
+  };
+
+  // Handle task assignment
+  const handleTaskAssignment = (type) => {
+    setTaskType(type);
+    setShowTaskAssignment(true);
+    loadSurveyorUsers();
+  };
+
+  // Handle surveyor selection
+  const handleSurveyorSelection = (user) => {
+    setSelectedSurveyor(user);
+    setShowTaskForm(true);
+  };
+
+  // Handle task confirmation
+  const handleTaskConfirmation = (user) => {
+    // Here you would typically save the task assignment to database
+    console.log(`Assigning ${taskType} task to user:`, user);
+    alert(`Tugas ${taskType === 'existing' ? 'Zona Existing' : 'Propose'} berhasil diberikan kepada ${user.displayName || user.username}`);
+    setShowTaskAssignment(false);
+    setShowTaskForm(false);
+    setSelectedSurveyor(null);
+  };
+
+  // Load available data for selection
+  const loadAvailableData = async () => {
+    setLoadingProposeData(true);
+    try {
+      // TODO: Implement actual data loading from database
+      // For now, simulate loading with timeout
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Placeholder data - replace with actual database call
+      const mockData = [
+        { id: 1, name: "Jl. Sudirman Raya", area: "Jakarta Pusat", status: "Available" },
+        { id: 2, name: "Jl. Thamrin Boulevard", area: "Jakarta Pusat", status: "Available" },
+        { id: 3, name: "Jl. Gatot Subroto", area: "Jakarta Selatan", status: "Available" },
+        { id: 4, name: "Jl. Kuningan Utara", area: "Jakarta Selatan", status: "Available" },
+        { id: 5, name: "Jl. HR Rasuna Said", area: "Jakarta Selatan", status: "Available" },
+        { id: 6, name: "Jl. Casablanca Raya", area: "Jakarta Selatan", status: "Available" },
+        { id: 7, name: "Jl. MT Haryono", area: "Jakarta Timur", status: "Available" },
+        { id: 8, name: "Jl. Ahmad Yani", area: "Jakarta Timur", status: "Available" }
+      ];
+      
+      setAvailableData(mockData);
+      setSelectedDataItems([]);
+      setShowDataSelectionModal(true);
+      
+    } catch (error) {
+      console.error('Error loading available data:', error);
+      alert('Gagal memuat data yang tersedia');
+    } finally {
+      setLoadingProposeData(false);
+    }
+  };
+
+  // Handle data selection
+  const handleDataSelection = (dataItem) => {
+    setSelectedDataItems(prev => {
+      const isSelected = prev.find(item => item.id === dataItem.id);
+      if (isSelected) {
+        return prev.filter(item => item.id !== dataItem.id);
+      } else {
+        return [...prev, dataItem];
+      }
+    });
+  };
+
+  // Confirm selected data
+  const confirmDataSelection = () => {
+    const selectedNames = selectedDataItems.map(item => item.name);
+    setProposeData(selectedNames);
+    setProposeDataText(selectedNames.join('\n'));
+    setShowDataSelectionModal(false);
+  };
+
+  // Load propose data function - now opens selection modal
+  const loadProposeData = () => {
+    loadAvailableData();
+  };
+
+  // Handle propose data text change
+  const handleProposeDataChange = (e) => {
+    setProposeDataText(e.target.value);
+  };
+
+  // Valid surveys functions
+  const loadValidSurveys = async (surveyType = null) => {
+    setLoadingValidSurveys(true);
+    try {
+      const url = surveyType ? `/api/valid-surveys?type=${surveyType}` : '/api/valid-surveys';
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Gagal mengambil data survey valid');
+      }
+      const data = await response.json();
+      setValidSurveys(data);
+    } catch (error) {
+      console.error('Error loading valid surveys:', error);
+      alert('Gagal memuat data survey valid: ' + error.message);
+    } finally {
+      setLoadingValidSurveys(false);
+    }
+  };
+
+  const handleFolderClick = (surveyType) => {
+    setSelectedSurveyType(surveyType);
+    loadValidSurveys(surveyType);
+  };
+
+  const handleBackToFolders = () => {
+    setSelectedSurveyType(null);
+    setValidSurveys([]);
+  };
+
+  const handleExportData = async (surveyType = 'all') => {
+    setExportingData(true);
+    try {
+      const url = surveyType === 'all' ? '/api/export-surveys' : `/api/export-surveys?type=${surveyType}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Gagal mengekspor data');
+      }
+
+      // Get the blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // Set filename
+      const fileName = `Data_Survey_Valid_${surveyType}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.download = fileName;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      alert('Data berhasil diekspor!');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Gagal mengekspor data: ' + error.message);
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  // Load measurement reports function
+  const loadMeasurementReports = async () => {
+    setLoadingMeasurementReports(true);
+    try {
+      const response = await fetch('/api/reports?lightweight=true');
+      if (!response.ok) {
+        throw new Error('Gagal mengambil data laporan pengukuran');
+      }
+      const data = await response.json();
+      setMeasurementReports(data);
+    } catch (error) {
+      console.error('Error loading measurement reports:', error);
+      alert('Gagal memuat data laporan pengukuran: ' + error.message);
+    } finally {
+      setLoadingMeasurementReports(false);
+    }
+  };
+
+  // Handle measurement filter changes
+  const handleMeasurementFilterChange = (field, value) => {
+    setMeasurementFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle measurement search
+  const handleMeasurementSearch = () => {
+    // The filtering is already handled by filteredMeasurementReports
+    // This function can be used to trigger additional actions if needed
+    console.log('Searching with filters:', measurementFilters);
+  };
+
+  // Reset measurement filters
+  const resetMeasurementFilters = () => {
+    setMeasurementFilters({
+      title: '',
+      surveyor: '',
+      date: '',
+      status: 'Semua'
+    });
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Tidak ada tanggal';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Survey validation functions
+  const loadSurveys = async () => {
+    setLoadingSurveys(true);
+    try {
+      const response = await fetch('/api/survey-validation');
+      if (!response.ok) {
+        throw new Error('Gagal mengambil data survey');
+      }
+      const data = await response.json();
+      setSurveys(data);
+    } catch (error) {
+      console.error('Error loading surveys:', error);
+      alert('Gagal memuat data survey: ' + error.message);
+    } finally {
+      setLoadingSurveys(false);
+    }
+  };
+
+  const handleSurveyDetail = (survey) => {
+    setSelectedSurvey(survey);
+    setShowSurveyDetail(true);
+  };
+
+  const handleSurveyValidation = (survey) => {
+    setSelectedSurvey(survey);
+    setShowSurveyValidation(true);
+  };
+
+  const handleSurveyEdit = (survey) => {
+    setSelectedSurvey(survey);
+    setShowSurveyEdit(true);
+  };
+
+  const handleValidateSurvey = async (surveyId, action, notes) => {
+    try {
+      const response = await fetch('/api/survey-validation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          surveyId,
+          action,
+          validatorName: currentUser.displayName || currentUser.username,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Gagal memvalidasi survey');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+      
+      // Refresh survey list
+      loadSurveys();
+      
+      // Close modal
+      setShowSurveyValidation(false);
+      setSelectedSurvey(null);
+    } catch (error) {
+      console.error('Error validating survey:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveSurvey = async (surveyId, updatedData) => {
+    try {
+      const response = await fetch('/api/survey-validation', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          surveyId,
+          updatedData,
+          editorName: currentUser.displayName || currentUser.username,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Gagal memperbarui survey');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+      
+      // Refresh survey list
+      loadSurveys();
+      
+      // Close modal
+      setShowSurveyEdit(false);
+      setSelectedSurvey(null);
+    } catch (error) {
+      console.error('Error updating survey:', error);
+      throw error;
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'pending': { color: 'bg-yellow-100 text-yellow-800', icon: Clock, text: 'Menunggu Validasi' },
+      'validated': { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Tervalidasi' },
+      'rejected': { color: 'bg-red-100 text-red-800', icon: X, text: 'Ditolak' }
+    };
+    
+    const config = statusConfig[status] || statusConfig['pending'];
+    const IconComponent = config.icon;
+    
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+        <IconComponent size={12} className="mr-1" />
+        {config.text}
+      </span>
+    );
+  };
+
+  // Filter surveys based on search term
+  const filteredSurveys = surveys.filter(survey => 
+    survey.projectTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    survey.surveyorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    survey.surveyType.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter measurement reports based on filters
+  const filteredMeasurementReports = measurementReports.filter(report => {
+    const titleMatch = !measurementFilters.title || 
+      (report.projectTitle && report.projectTitle.toLowerCase().includes(measurementFilters.title.toLowerCase())) ||
+      (report.projectLocation && report.projectLocation.toLowerCase().includes(measurementFilters.title.toLowerCase()));
+    
+    const surveyorMatch = !measurementFilters.surveyor || 
+      (report.surveyorName && report.surveyorName.toLowerCase().includes(measurementFilters.surveyor.toLowerCase()));
+    
+    const dateMatch = !measurementFilters.date || 
+      (report.projectDate && report.projectDate.includes(measurementFilters.date));
+    
+    const statusMatch = measurementFilters.status === 'Semua' || 
+      (measurementFilters.status === 'Lengkap' && report.hasGridData) ||
+      (measurementFilters.status === 'Tidak Lengkap' && !report.hasGridData);
+    
+    return titleMatch && surveyorMatch && dateMatch && statusMatch;
+  });
+
+  // Group surveys by type
+  const groupedSurveys = filteredSurveys.reduce((acc, survey) => {
+    const type = survey.surveyType;
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(survey);
+    return acc;
+  }, {});
+
+  // Get current user data
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange(async (user) => {
+      if (user) {
+        try {
+          const userData = await getUserData(user.uid);
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email,
+            username: userData?.username || 'admin',
+            displayName: userData?.displayName || 'Admin Survey',
+            role: userData?.role || 'admin_survey',
+            phone: userData?.phone || '+62 812-3456-7890'
+          });
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          // Fallback data jika gagal fetch
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email,
+            username: 'admin',
+            displayName: 'Admin Survey',
+            role: 'admin_survey',
+            phone: '+62 812-3456-7890'
+          });
+        }
+      } else {
+        // Redirect ke login jika tidak ada user
+        window.location.href = '/';
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load users when component mounts or when activeMenu changes to Manajemen Pengguna
+  useEffect(() => {
+    if (activeMenu === 'Manajemen Pengguna' && !showAddUserForm) {
+      loadUsers();
+    }
+  }, [activeMenu, showAddUserForm]);
+
+  // Load surveys when component mounts or when activeMenu changes to Validasi Data Survey
+  useEffect(() => {
+    if (activeMenu === 'Validasi Data Survey') {
+      loadSurveys();
+    }
+  }, [activeMenu]);
+
+  // Load tasks when component mounts or when activeMenu changes to Data Tugas
+  useEffect(() => {
+    if (activeMenu === 'Data Tugas') {
+      // TODO: Load tasks from API
+      // For now, use mock data
+      const mockTasks = [
+        {
+          id: 1,
+          title: 'Survey Pencahayaan Jl. Sudirman',
+          type: 'existing',
+          assignedTo: 'John Doe',
+          status: 'completed',
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 2,
+          title: 'Survey Propose Jl. Thamrin',
+          type: 'propose',
+          assignedTo: 'Jane Smith',
+          status: 'in_progress',
+          createdAt: new Date().toISOString()
+        }
+      ];
+      setTasks(mockTasks);
+    }
+  }, [activeMenu]);
+
+  // Load measurement reports when component mounts or when activeMenu changes to Panel Admin Pengukuran
+  useEffect(() => {
+    if (activeMenu === 'Panel Admin Pengukuran') {
+      loadMeasurementReports();
+    }
+  }, [activeMenu]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Show loading state
+  if (loading || !currentUser) {
+    return (
+      <div className="flex h-screen bg-gray-50 items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Memuat...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-50 font-sans text-gray-800">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-lg flex flex-col">
+        <div className="p-6 border-b border-gray-200 font-extrabold text-xl tracking-wide text-indigo-600">
+          Admin
+        </div>
+        <nav className="flex-1 overflow-y-auto">
+          <ul>
+            {menuItems.map((item) => (
+              <li key={item.label}>
+                <button
+                  onClick={() => setActiveMenu(item.label)}
+                  className={`w-full flex items-center gap-3 px-6 py-3 text-left transition-colors duration-200 ${
+                    activeMenu === item.label
+                      ? 'bg-indigo-100 text-indigo-700 font-semibold'
+                      : 'hover:bg-indigo-50 hover:text-indigo-600'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 flex flex-col bg-white">
+        {/* Top bar */}
+        <header className="flex items-center justify-between p-4 border-b border-gray-200 shadow-sm">
+          <div className="flex items-center space-x-4">
+            {activeMenu !== 'Panel Admin Pengukuran' ? (
+              <input
+                type="text"
+                placeholder={activeMenu === 'Data Tugas' ? "Cari tugas..." : "Cari..."}
+                value={activeMenu === 'Data Tugas' ? taskSearchTerm : searchTerm}
+                onChange={(e) => {
+                  if (activeMenu === 'Data Tugas') {
+                    setTaskSearchTerm(e.target.value);
+                  } else {
+                    setSearchTerm(e.target.value);
+                  }
+                }}
+                className="w-64 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              />
+            ) : (
+              <button
+                onClick={() => setShowMeasurementFilters(!showMeasurementFilters)}
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200"
+              >
+                <Search size={16} />
+                <span>Filter Laporan</span>
+                <ChevronDown size={16} className={`transform transition-transform ${showMeasurementFilters ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+          </div>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="flex items-center space-x-3 bg-white rounded-full shadow-md px-4 py-2 hover:shadow-lg transition-all duration-200 border border-gray-200"
+            >
+              <div className="relative">
+                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                  <User size={20} className="text-white" />
+                </div>
+                {/* Online status indicator */}
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <div className="text-left">
+                <div className="text-xs text-gray-500 font-medium">PANEL ADMIN</div>
+                <div className="text-sm text-gray-900 font-semibold">{currentUser.username}</div>
+              </div>
+            </button>
+
+            {/* User Dropdown */}
+            {showUserDropdown && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 transform transition-all duration-300 ease-out animate-in slide-in-from-top-2 fade-in-0 zoom-in-95">
+                {/* User Info Header */}
+                <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-blue-50">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                      <User size={24} className="text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{currentUser.displayName}</h3>
+                      <p className="text-sm text-gray-600">Administrator</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* User Details - Only Email */}
+                <div className="p-4">
+                  <div className="flex items-center space-x-3 text-sm">
+                    <Mail size={16} className="text-gray-400" />
+                    <span className="text-gray-700">{currentUser.email}</span>
+                  </div>
+                </div>
+
+                {/* Logout Button */}
+                <div className="p-4 border-t border-gray-200">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium transform hover:scale-105 active:scale-95"
+                  >
+                    <LogOut size={16} />
+                    <span>Keluar</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Main content area */}
+        <section className="flex-1 p-10 overflow-auto">
+          {activeMenu === 'Dashboard' ? (
+            // Dashboard content
+            <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+              {mainButtons.map((btn) => (
+                <button
+                  key={btn.label}
+                  onClick={() => setActiveMenu(btn.label)}
+                  className="flex flex-col items-center justify-center gap-4 bg-white rounded-xl shadow-md p-8 hover:shadow-xl transition-shadow duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-300"
+                  aria-label={btn.label}
+                >
+                  {btn.icon}
+                  <span className="text-lg font-semibold text-gray-900">{btn.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : activeMenu === 'Panel Admin Pengukuran' ? (
+            // Panel Admin Pengukuran content
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Panel Admin Pengukuran</h1>
+                <p className="text-gray-600">Kelola dan lihat laporan pengukuran dari petugas surveyor</p>
+              </div>
+
+              {/* Filter Section */}
+              {showMeasurementFilters && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Filter Laporan</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Judul/Lokasi</label>
+                      <input
+                        type="text"
+                        placeholder="Cari judul atau lokasi..."
+                        value={measurementFilters.title}
+                        onChange={(e) => handleMeasurementFilterChange('title', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Petugas</label>
+                      <input
+                        type="text"
+                        placeholder="Nama petugas..."
+                        value={measurementFilters.surveyor}
+                        onChange={(e) => handleMeasurementFilterChange('surveyor', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal</label>
+                      <input
+                        type="date"
+                        value={measurementFilters.date}
+                        onChange={(e) => handleMeasurementFilterChange('date', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                      <select
+                        value={measurementFilters.status}
+                        onChange={(e) => handleMeasurementFilterChange('status', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="Semua">Semua</option>
+                        <option value="Lengkap">Lengkap</option>
+                        <option value="Tidak Lengkap">Tidak Lengkap</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex space-x-3 mt-4">
+                    <button
+                      onClick={handleMeasurementSearch}
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-200 flex items-center space-x-2"
+                    >
+                      <Search size={16} />
+                      <span>Cari</span>
+                    </button>
+                    <button
+                      onClick={resetMeasurementFilters}
+                      className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors duration-200"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Reports Grid */}
+              {loadingMeasurementReports ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  <span className="ml-2 text-gray-600">Memuat laporan...</span>
+                </div>
+              ) : filteredMeasurementReports.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <FileText size={48} className="mx-auto" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak ada laporan ditemukan</h3>
+                    <p className="text-gray-600">Tidak ada laporan pengukuran yang sesuai dengan filter yang dipilih</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredMeasurementReports.map((report) => (
+                    <div key={report.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                      <div className="p-6">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                            {report.projectTitle || 'Tanpa Judul'}
+                          </h3>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            report.hasGridData 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {report.hasGridData ? 'Lengkap' : 'Tidak Lengkap'}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <div className="flex items-center space-x-2">
+                            <MapPin size={14} className="text-gray-400" />
+                            <span>{report.projectLocation || 'Lokasi tidak tersedia'}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <User size={14} className="text-gray-400" />
+                            <span>{report.surveyorName || 'Petugas tidak diketahui'}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Clock size={14} className="text-gray-400" />
+                            <span>{formatDate(report.projectDate)}</span>
+                          </div>
+                          {report.lampPower && (
+                            <div className="flex items-center space-x-2">
+                              <Lightbulb size={14} className="text-gray-400" />
+                              <span>Daya: {report.lampPower}W</span>
+                            </div>
+                          )}
+                          {report.poleHeight && (
+                            <div className="flex items-center space-x-2">
+                              <Building size={14} className="text-gray-400" />
+                              <span>Tinggi Tiang: {report.poleHeight}m</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-gray-500">
+                              {report.hasDocumentationPhotos && (
+                                <span className="inline-flex items-center space-x-1">
+                                  <Camera size={12} />
+                                  <span>Ada foto</span>
+                                </span>
+                              )}
+                            </div>
+                            <button 
+                              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                              onClick={() => handleSurveyDetail(report)}
+                            >
+                              Lihat Detail
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Summary Stats */}
+              {filteredMeasurementReports.length > 0 && (
+                <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Ringkasan</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-indigo-600">{filteredMeasurementReports.length}</div>
+                      <div className="text-sm text-gray-600">Total Laporan</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {filteredMeasurementReports.filter(r => r.hasGridData).length}
+                      </div>
+                      <div className="text-sm text-gray-600">Laporan Lengkap</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">
+                        {filteredMeasurementReports.filter(r => !r.hasGridData).length}
+                      </div>
+                      <div className="text-sm text-gray-600">Laporan Tidak Lengkap</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {new Set(filteredMeasurementReports.map(r => r.surveyorName)).size}
+                      </div>
+                      <div className="text-sm text-gray-600">Petugas Aktif</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : activeMenu === 'Data Survey Valid' ? (
+            // Data Survey Valid content
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Data Survey Valid</h1>
+                <p className="text-gray-600">Kelola dan lihat data survey yang telah divalidasi</p>
+              </div>
+
+              {/* Survey Type Selection */}
+              {!selectedSurveyType ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <button
+                    onClick={() => handleFolderClick('survey_existing')}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 hover:shadow-md transition-shadow duration-200 text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <FolderOpen size={32} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">Survey Existing</h3>
+                        <p className="text-gray-600">Data survey zona existing yang telah divalidasi</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleFolderClick('survey_apj_propose')}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 hover:shadow-md transition-shadow duration-200 text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center">
+                        <FolderOpen size={32} className="text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">Survey APJ Propose</h3>
+                        <p className="text-gray-600">Data survey APJ propose yang telah divalidasi</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                // Survey List View
+                <div>
+                  <div className="mb-6 flex items-center justify-between">
+                    <button
+                      onClick={handleBackToFolders}
+                      className="flex items-center space-x-2 text-indigo-600 hover:text-indigo-800"
+                    >
+                      <ChevronDown size={16} className="rotate-90" />
+                      <span>Kembali ke Folder</span>
+                    </button>
+                    
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => handleExportData(selectedSurveyType)}
+                        disabled={exportingData}
+                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50"
+                      >
+                        <Download size={16} />
+                        <span>{exportingData ? 'Mengekspor...' : 'Ekspor Data'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Survey Grid */}
+                  {loadingValidSurveys ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                      <span className="ml-2 text-gray-600">Memuat data survey...</span>
+                    </div>
+                  ) : validSurveys.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                      <div className="text-center py-12">
+                        <div className="text-gray-400 mb-4">
+                          <FileText size={48} className="mx-auto" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak ada data survey</h3>
+                        <p className="text-gray-600">Belum ada data survey yang divalidasi untuk kategori ini</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {validSurveys.map((survey) => (
+                        <div key={survey.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                          <div className="p-6">
+                            <div className="flex items-start justify-between mb-3">
+                              <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                                {survey.projectTitle || 'Tanpa Judul'}
+                              </h3>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Tervalidasi
+                              </span>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm text-gray-600">
+                              <div className="flex items-center space-x-2">
+                                <MapPin size={14} className="text-gray-400" />
+                                <span>{survey.projectLocation || 'Lokasi tidak tersedia'}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <User size={14} className="text-gray-400" />
+                                <span>{survey.surveyorName || 'Surveyor tidak diketahui'}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Clock size={14} className="text-gray-400" />
+                                <span>{formatDate(survey.validatedAt || survey.createdAt)}</span>
+                              </div>
+                              {survey.lampPower && (
+                                <div className="flex items-center space-x-2">
+                                  <Lightbulb size={14} className="text-gray-400" />
+                                  <span>Daya: {survey.lampPower}W</span>
+                                </div>
+                              )}
+                              {survey.poleHeight && (
+                                <div className="flex items-center space-x-2">
+                                  <Building size={14} className="text-gray-400" />
+                                  <span>Tinggi Tiang: {survey.poleHeight}m</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-gray-500">
+                                  {survey.hasPhoto && (
+                                    <span className="inline-flex items-center space-x-1">
+                                      <Camera size={12} />
+                                      <span>Ada foto</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <button 
+                                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                  onClick={() => handleSurveyDetail(survey)}
+                                >
+                                  Lihat Detail
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Summary Stats */}
+                  {validSurveys.length > 0 && (
+                    <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Ringkasan</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-indigo-600">{validSurveys.length}</div>
+                          <div className="text-sm text-gray-600">Total Survey</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {validSurveys.filter(s => s.hasPhoto).length}
+                          </div>
+                          <div className="text-sm text-gray-600">Dengan Foto</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {new Set(validSurveys.map(s => s.surveyorName)).size}
+                          </div>
+                          <div className="text-sm text-gray-600">Surveyor</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">
+                            {validSurveys.filter(s => s.validatedBy).length}
+                          </div>
+                          <div className="text-sm text-gray-600">Divalidasi</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            // Default content untuk menu lainnya
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <Home size={48} className="mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{activeMenu}</h3>
+                  <p className="text-gray-600">Konten untuk {activeMenu} sedang dalam pengembangan</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Modals */}
+      {showSurveyDetail && selectedSurvey && (
+        <SurveyDetailModal
+          survey={selectedSurvey}
+          onClose={() => {
+            setShowSurveyDetail(false);
+            setSelectedSurvey(null);
+          }}
+        />
+      )}
+
+      {showSurveyValidation && selectedSurvey && (
+        <SurveyValidationModal
+          survey={selectedSurvey}
+          onClose={() => {
+            setShowSurveyValidation(false);
+            setSelectedSurvey(null);
+          }}
+          onValidate={handleValidateSurvey}
+        />
+      )}
+
+      {showSurveyEdit && selectedSurvey && (
+        <SurveyEditModal
+          survey={selectedSurvey}
+          onClose={() => {
+            setShowSurveyEdit(false);
+            setSelectedSurvey(null);
+          }}
+          onSave={handleSaveSurvey}
+        />
+      )}
+
+      {showTaskDetail && selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => {
+            setShowTaskDetail(false);
+            setSelectedTask(null);
+          }}
+        />
+      )}
+
+      {/* User Detail Modal */}
+      {showUserDetail && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Detail Pengguna</h3>
+                <button
+                  onClick={() => {
+                    setShowUserDetail(false);
+                    setSelectedUser(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Nama Lengkap</label>
+                <div className="mt-1 text-sm text-gray-900">{selectedUser.displayName || selectedUser.username}</div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Username</label>
+                <div className="mt-1 text-sm text-gray-900">{selectedUser.username}</div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <div className="mt-1 text-sm text-gray-900">{selectedUser.email}</div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Role</label>
+                <div className="mt-1 text-sm text-gray-900">
+                  {roleOptions.find(option => option.value === selectedUser.role)?.label || selectedUser.role}
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowUserDetail(false);
+                  setSelectedUser(null);
+                }}
+                className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
+                  <AlertTriangle size={24} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Konfirmasi Hapus</h3>
+                  <p className="text-sm text-gray-600">Tindakan ini tidak dapat dibatalkan</p>
+                </div>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                Apakah Anda yakin ingin menghapus pengguna <strong>{userToDelete.displayName || userToDelete.username}</strong>?
+              </p>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setUserToDelete(null);
+                  }}
+                  className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDeleteUser}
+                  className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200"
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data Selection Modal */}
+      {showDataSelectionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Pilih Data Propose</h3>
+                <button
+                  onClick={() => setShowDataSelectionModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-96">
+              <div className="space-y-3">
+                {availableData.map((item) => (
+                  <div key={item.id} className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id={`data-${item.id}`}
+                      checked={selectedDataItems.find(selected => selected.id === item.id) !== undefined}
+                      onChange={() => handleDataSelection(item)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor={`data-${item.id}`} className="flex-1 cursor-pointer">
+                      <div className="font-medium text-gray-900">{item.name}</div>
+                      <div className="text-sm text-gray-600">{item.area}</div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200">
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDataSelectionModal(false)}
+                  className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDataSelection}
+                  disabled={selectedDataItems.length === 0}
+                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                >
+                  Konfirmasi ({selectedDataItems.length} dipilih)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PanelAdminSurveyLapangan;

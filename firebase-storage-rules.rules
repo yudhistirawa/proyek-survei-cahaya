@@ -1,0 +1,83 @@
+rules_version = '2';
+
+// Firebase Storage Rules untuk aplikasi survei cahaya
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Rules untuk folder kmz dan semua subfolder - mengizinkan upload dan download
+    match /kmz/{allPaths=**} {
+      allow read: if true;
+      // Izinkan write untuk admin atau user yang terautentikasi
+      allow write: if request.auth != null
+        || request.auth.token.admin == true
+        || request.auth.token.role == 'admin';
+    }
+    
+    // Rules untuk folder Survey_Existing - mengizinkan upload foto survey existing
+    match /Survey_Existing/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder Survey_Proposed - mengizinkan upload foto survey proposed
+    match /Survey_Proposed/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder Survey_ARM - mengizinkan upload foto survey ARM
+    match /Survey_ARM/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder Survey_Tiang_APJ_Propose - mengizinkan upload foto survey
+    match /Survey_Tiang_APJ_Propose/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder Survey_Tiang_APJ_New - mengizinkan upload foto survey
+    match /Survey_Tiang_APJ_New/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder Survey_Trafo - mengizinkan upload foto survey
+    match /Survey_Trafo/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder Survey_Fasos_Fasum - mengizinkan upload foto survey
+    match /Survey_Fasos_Fasum/{userId}/{docId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder petugas-photos - mengizinkan upload foto petugas
+    match /petugas-photos/{userId}/{fileName} {
+      allow read: if true;
+      // Izinkan write untuk user yang terautentikasi (tidak perlu UID sama)
+      allow write: if request.auth != null;
+    }
+    
+    // Rules untuk folder test - hanya untuk testing
+    match /test/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules untuk folder lain - izinkan read, tapi write hanya untuk user yang terautentikasi
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "appId": "com.proyeksurveicahaya.app",
+  "appName": "Proyek Survei Cahaya",
+  "webDir": "out",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "Camera": {
+      "permissions": ["camera", "photos"]
+    },
+    "Geolocation": {
+      "permissions": ["location"]
+    }
+  }
+}

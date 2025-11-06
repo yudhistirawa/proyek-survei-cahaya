@@ -1,0 +1,51 @@
+rules_version = '2';
+
+// Firebase Storage Rules untuk aplikasi survei cahaya dengan CORS fix
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Rules untuk semua folder survey - mengizinkan upload dan download
+    match /Survey_APJ_Propose/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    match /Survey_Existing/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    match /Survey_ARM/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    match /Survey_Tiang_APJ_Propose/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    match /Survey_Tiang_APJ_New/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    match /Survey_Trafo/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    match /Survey_Fasos_Fasum/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules untuk folder kmz dan semua subfolder
+    match /kmz/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules untuk folder test
+    match /test/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Rules untuk semua folder lain - izinkan semua untuk development
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
