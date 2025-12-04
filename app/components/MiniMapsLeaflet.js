@@ -27,6 +27,8 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
     const hasAutoFocusedKmzRef = useRef(false);
     const userInteractedRef = useRef(false);
     const prevMarkerCountRef = useRef(0);
+    const watchIdRef = useRef(null);
+    const autoFollowRef = useRef(true); // Track if auto-follow is enabled
 
     // Custom icons untuk markers
     const createCustomIcon = (type) => {
@@ -122,6 +124,8 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
             // Listen to user interactions to stop auto-fitting after the user moves the map
             map.on('dragstart zoomstart pinchstart', () => {
                 userInteractedRef.current = true;
+                autoFollowRef.current = false; // Disable auto-follow when user interacts
+                console.log('🚫 MiniMapsLeaflet: Auto-follow disabled due to user interaction');
             });
 
             // Listen for KMZ data loaded event to trigger auto-focus
@@ -158,6 +162,11 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                     const { lat, lng } = event.detail.location;
                     console.log('🎯 MiniMapsLeaflet: Focusing on user location:', lat, lng);
                     
+                    // Re-enable auto-follow when user manually focuses
+                    autoFollowRef.current = true;
+                    userInteractedRef.current = false;
+                    console.log('✅ MiniMapsLeaflet: Auto-follow re-enabled');
+                    
                     // Center map on user location with smooth animation
                     mapInstance.current.setView([lat, lng], 16, {
                         animate: true,
@@ -182,6 +191,13 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
 
             // Cleanup function
             return () => {
+                // Stop watching location
+                if (watchIdRef.current !== null) {
+                    navigator.geolocation.clearWatch(watchIdRef.current);
+                    watchIdRef.current = null;
+                    console.log('🛑 MiniMapsLeaflet: Stopped watching location');
+                }
+                
                 // Remove event listeners
                 if (mapInstance.current && mapInstance.current._kmzDataLoadedHandler) {
                     window.removeEventListener('kmzDataLoaded', mapInstance.current._kmzDataLoadedHandler);
@@ -271,8 +287,15 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
             radius: 50 // 50 meter radius
         }).addTo(mapInstance.current);
 
-        // Center map on user location only once initially (avoid resetting user's view)
-        if (!hasCenteredOnUserRef.current && !userInteractedRef.current) {
+        // Center map on user location if auto-follow is enabled
+        if (autoFollowRef.current) {
+            mapInstance.current.setView([lat, lng], mapInstance.current.getZoom(), {
+                animate: true,
+                duration: 0.5
+            });
+            console.log('📍 MiniMapsLeaflet: Auto-following user to:', lat, lng);
+        } else if (!hasCenteredOnUserRef.current) {
+            // Initial center only
             mapInstance.current.setView([lat, lng], 15);
             hasCenteredOnUserRef.current = true;
         }

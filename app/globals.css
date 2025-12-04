@@ -966,10 +966,10 @@ body.modal-open {
   border: none !important;
 }
 
-/* Mini Maps Animation */
+/* Mini Maps Modern Animation */
 @keyframes slideInFromRight {
   from {
-    transform: translateX(100%) scale(0.95);
+    transform: translateX(calc(100% + 24px)) scale(0.9);
     opacity: 0;
   }
   to {
@@ -984,7 +984,7 @@ body.modal-open {
     opacity: 1;
   }
   to {
-    transform: translateX(100%) scale(0.95);
+    transform: translateX(calc(100% + 24px)) scale(0.9);
     opacity: 0;
   }
 }
@@ -992,31 +992,40 @@ body.modal-open {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: scale(0.9);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes fadeOut {
   from {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
   to {
     opacity: 0;
-    transform: scale(0.9);
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 
 .mini-maps-enter {
-  animation: slideInFromRight 0.3s ease-out forwards;
+  animation: slideInFromRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .mini-maps-exit {
-  animation: slideOutToRight 0.3s ease-in forwards;
+  animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .mini-maps-button-enter {
@@ -1027,13 +1036,16 @@ body.modal-open {
   animation: fadeOut 0.2s ease-in forwards;
 }
 
-/* Mini Maps Container Visibility */
+/* Mini Maps Container with Glassmorphism */
 .mini-maps-container {
-  transition: all 0.3s ease-in-out;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .mini-maps-container.hidden {
-  transform: translateX(100%) scale(0.95);
+  transform: translateX(calc(100% + 24px)) scale(0.9);
   opacity: 0;
   pointer-events: none;
 }
@@ -1042,4 +1054,104 @@ body.modal-open {
   transform: translateX(0) scale(1);
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Glassmorphism Header */
+.mini-maps-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Modern Button Styles */
+.mini-maps-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mini-maps-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.mini-maps-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.mini-maps-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Ripple Effect */
+.mini-maps-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+
+.mini-maps-btn:active:not(:disabled)::after {
+  width: 100px;
+  height: 100px;
+}
+
+/* Info Panel Glassmorphism */
+.mini-maps-info {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Smooth Map Transitions */
+.leaflet-container {
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .mini-maps-container {
+    width: calc(100vw - 32px) !important;
+    max-width: 320px;
+    right: 16px !important;
+    bottom: 80px !important;
+  }
+  
+  .mini-maps-container.expanded {
+    width: calc(100vw - 24px) !important;
+    max-width: none;
+    right: 12px !important;
+    bottom: 12px !important;
+    height: 60vh !important;
+  }
+  
+  .mini-maps-info {
+    max-width: 100%;
+  }
+  
+  .mini-maps-header {
+    padding: 0.5rem !important;
+  }
+}
+
+/* Compact Mobile Mode */
+@media (max-width: 480px) {
+  .mini-maps-container {
+    width: calc(100vw - 24px) !important;
+    max-width: 280px;
+  }
+  
+  .mini-maps-btn {
+    padding: 0.375rem !important;
+  }
 }

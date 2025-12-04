@@ -64,6 +64,7 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
     const [kmzData, setKmzData] = useState(null);
     const [kmzLoading, setKmzLoading] = useState(false);
     const [kmzError, setKmzError] = useState(null);
+    const watchIdRef = useRef(null);
 
     // Load KMZ data from URL
     const loadKmzData = async (kmzUrl) => {
@@ -297,6 +298,41 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
     useEffect(() => {
         console.log('📊 MiniMapsComponent: isVisible changed to:', isVisible);
         console.log('📊 MiniMapsComponent: Manual close flag:', sessionStorage.getItem('miniMapsManuallyClosed'));
+        
+        // Start watching location when mini maps becomes visible
+        if (isVisible && !watchIdRef.current && navigator.geolocation) {
+            console.log('🎯 MiniMapsComponent: Starting continuous location tracking');
+            
+            watchIdRef.current = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    setCurrentLocation({ lat: latitude, lng: longitude, accuracy });
+                    console.log('📍 MiniMapsComponent: Location updated:', latitude, longitude);
+                },
+                (error) => {
+                    console.error('❌ MiniMapsComponent: Error watching location:', error);
+                    setError('Gagal melacak lokasi: ' + error.message);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 5000 // Update every 5 seconds
+                }
+            );
+        } else if (!isVisible && watchIdRef.current) {
+            // Stop watching when mini maps is hidden
+            console.log('🛑 MiniMapsComponent: Stopping location tracking');
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
+        
+        // Cleanup on unmount
+        return () => {
+            if (watchIdRef.current) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
+        };
     }, [isVisible]);
 
     // Get current location
@@ -1285,81 +1321,103 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
     return (
         <div className={`fixed z-40 mini-maps-container ${
             isExpanded 
-                ? 'bottom-6 right-6 w-96 h-80' 
-                : 'bottom-24 right-6 w-64 h-48'
+                ? 'expanded bottom-6 right-6 w-[420px] h-[480px]' 
+                : 'bottom-24 right-6 w-80 h-60'
         } ${isVisible ? 'visible' : 'hidden'}`}
         style={{ pointerEvents: isVisible ? 'auto' : 'none' }}>
-            {/* Header */}
-            <div className="bg-white rounded-t-xl shadow-lg border-b border-gray-200 p-3 flex items-center justify-between" style={{ pointerEvents: 'auto', zIndex: 9998 }}>
-                <div className="flex items-center space-x-2">
-                    <Target size={16} className="text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Mini Maps</span>
+            {/* Header with Glassmorphism */}
+            <div className="mini-maps-header rounded-t-2xl p-3.5 flex items-center justify-between" style={{ pointerEvents: 'auto', zIndex: 9998 }}>
+                <div className="flex items-center space-x-2.5">
+                    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm">
+                        <Target size={16} className="text-white" />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-gray-800 leading-none">Mini Maps</span>
+                        <span className="text-xs text-gray-500">Real-time Tracking</span>
+                    </div>
                     {(loading || !mapLoaded) && (
                         <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     )}
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1.5">
                     <button
                         onClick={reloadKmzFromSession}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="mini-maps-btn p-2 hover:bg-blue-50 rounded-lg transition-all"
                         style={{ cursor: 'pointer' }}
                         title="Muat ulang KMZ"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-rotate-cw text-gray-600"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.37 4.37A9 9 0 0020.49 15"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.37 4.37A9 9 0 0020.49 15"></path></svg>
                     </button>
                     <button
                         onClick={focusOnKmzContent}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="mini-maps-btn p-2 hover:bg-purple-50 rounded-lg transition-all"
                         style={{ cursor: 'pointer' }}
                         title="Fokus ke Area KMZ"
                         disabled={!kmzData || (!kmzData.coordinates?.length && !kmzData.polygons?.length && !kmzData.lines?.length)}
                     >
-                        <Map size={14} className={`${!kmzData || (!kmzData.coordinates?.length && !kmzData.polygons?.length && !kmzData.lines?.length) ? 'text-gray-300' : 'text-purple-600'}`} />
+                        <Map size={16} strokeWidth={2.5} className={`${!kmzData || (!kmzData.coordinates?.length && !kmzData.polygons?.length && !kmzData.lines?.length) ? 'text-gray-300' : 'text-purple-600'}`} />
                     </button>
                     <button
                         onClick={focusOnUserLocation}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="mini-maps-btn p-2 hover:bg-blue-50 rounded-lg transition-all"
                         style={{ cursor: 'pointer' }}
                         title="Fokus ke Lokasi Saya"
                         disabled={!currentLocation}
                     >
-                        <Crosshair size={14} className={`${!currentLocation ? 'text-gray-300' : 'text-blue-600'}`} />
+                        <Crosshair size={16} strokeWidth={2.5} className={`${!currentLocation ? 'text-gray-300' : 'text-blue-600'}`} />
                     </button>
+                    <button
+                        onClick={() => {
+                            // Re-enable auto-follow by dispatching event to map
+                            window.dispatchEvent(new CustomEvent('focusUserLocation', { 
+                                detail: { 
+                                    location: currentLocation,
+                                    userRequested: true
+                                } 
+                            }));
+                        }}
+                        className="mini-maps-btn p-2 hover:bg-green-50 rounded-lg transition-all"
+                        style={{ cursor: 'pointer' }}
+                        title="Ikuti Lokasi Saya (Auto-Follow)"
+                        disabled={!currentLocation}
+                    >
+                        <Navigation size={16} strokeWidth={2.5} className={`${!currentLocation ? 'text-gray-300' : 'text-green-600'}`} />
+                    </button>
+                    <div className="w-px h-6 bg-gray-200"></div>
                     <button
                         onClick={() => {
                             console.log('🔄 MiniMapsComponent: Expand/minimize button clicked, current isExpanded:', isExpanded);
                             setIsExpanded(!isExpanded);
                         }}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="mini-maps-btn p-2 hover:bg-gray-50 rounded-lg transition-all"
                         style={{ cursor: 'pointer' }}
                         title={isExpanded ? 'Perkecil' : 'Perbesar'}
                     >
-                        {isExpanded ? <Minimize2 size={14} className="text-gray-600" /> : <Maximize2 size={14} className="text-gray-600" />}
+                        {isExpanded ? <Minimize2 size={16} strokeWidth={2.5} className="text-gray-600" /> : <Maximize2 size={16} strokeWidth={2.5} className="text-gray-600" />}
                     </button>
                     <button
                         onClick={() => {
                             console.log('🖱️ MiniMapsComponent: Close button clicked - INLINE');
                             console.log('🔄 MiniMapsComponent: Setting isVisible to false');
                             setIsVisible(false);
-                            // Mark as manually closed
                             sessionStorage.setItem('miniMapsManuallyClosed', 'true');
                             console.log('✅ MiniMapsComponent: Close button action completed');
                         }}
                         disabled={isAnimating}
-                        className="p-1 hover:bg-gray-100 disabled:opacity-50 rounded transition-colors relative z-10"
+                        className="mini-maps-btn p-2 hover:bg-red-50 disabled:opacity-50 rounded-lg transition-all relative z-10"
                         style={{ zIndex: 9999, cursor: 'pointer', pointerEvents: 'auto' }}
                         title="Tutup"
                     >
-                        <X size={14} className="text-gray-600" />
+                        <X size={16} strokeWidth={2.5} className="text-gray-600 hover:text-red-600" />
                     </button>
                 </div>
             </div>
 
             {/* Map Container */}
-            <div className="bg-white rounded-b-xl shadow-lg overflow-hidden">
+            <div className="bg-white shadow-lg overflow-hidden" style={{ borderRadius: isExpanded ? '0 0 1rem 1rem' : '0' }}>
                 <div 
-                    className="w-full h-full"
-                    style={{ height: isExpanded ? '280px' : '180px' }}
+                    className="w-full h-full relative"
+                    style={{ height: isExpanded ? '360px' : '180px' }}
                 >
                     <MiniMapsLeaflet
                         currentLocation={currentLocation}
@@ -1373,71 +1431,74 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
                 </div>
             </div>
 
-            {/* Info Panel */}
-            <div className="bg-white rounded-xl shadow-lg mt-2 p-3 max-w-64">
-                <div className="space-y-2">
+            {/* Info Panel - Only show when not expanded */}
+            {!isExpanded && (
+            <div className="mini-maps-info rounded-xl shadow-lg mt-2.5 p-3 backdrop-blur-md">
+                <div className="space-y-1.5">
                     {/* Current Location */}
-                    <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        <span className="text-xs text-gray-600">Lokasi Anda</span>
+                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shadow-sm"></div>
+                            <span className="text-xs font-medium text-gray-700">Lokasi Anda</span>
+                        </div>
+                        <span className="text-xs text-blue-600 font-semibold">●</span>
                     </div>
 
                     {/* Survey Points */}
-                    <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-red-600 rounded-full"></div>
-                        <span className="text-xs text-gray-600">
-                            Survey Existing ({surveyPoints.filter(p => p.type === 'existing').length})
-                        </span>
+                    <div className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2.5 h-2.5 bg-red-600 rounded-full shadow-sm"></div>
+                            <span className="text-xs font-medium text-gray-700">Survey Existing</span>
+                        </div>
+                        <span className="text-xs text-red-600 font-semibold">{surveyPoints.filter(p => p.type === 'existing').length}</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                        <span className="text-xs text-gray-600">
-                            Survey APJ Propose ({surveyPoints.filter(p => p.type === 'propose').length})
-                        </span>
+                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2.5 h-2.5 bg-blue-600 rounded-full shadow-sm"></div>
+                            <span className="text-xs font-medium text-gray-700">APJ Propose</span>
+                        </div>
+                        <span className="text-xs text-blue-600 font-semibold">{surveyPoints.filter(p => p.type === 'propose').length}</span>
                     </div>
                     
-                                {/* Route Tracking */}
-            {routeTracking && (
-                <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <span className="text-xs text-gray-600">
-                        Jejak Surveyor ({routePoints.length} titik)
-                    </span>
-                </div>
-            )}
-            
-            {/* Database Info */}
-            <div className="flex items-center space-x-2">
-                <span className="text-xs text-blue-600 font-medium">
-                    📊 Maps_Surveyor
-                </span>
-            </div>
+                    {/* Route Tracking */}
+                    {routeTracking && (
+                        <div className="flex items-center justify-between p-2 bg-orange-50 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2.5 h-2.5 bg-orange-500 rounded-full shadow-sm"></div>
+                                <span className="text-xs font-medium text-gray-700">Jejak Surveyor</span>
+                            </div>
+                            <span className="text-xs text-orange-600 font-semibold">{routePoints.length}</span>
+                        </div>
+                    )}
                     
                     {/* Task Area from KMZ */}
                     {kmzData && (
                         <>
                             {kmzData.coordinates && kmzData.coordinates.length > 0 && (
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                                    <span className="text-xs text-gray-600">
-                                        Koordinat KMZ ({kmzData.coordinates.length})
-                                    </span>
+                                <div className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm"></div>
+                                        <span className="text-xs font-medium text-gray-700">Koordinat KMZ</span>
+                                    </div>
+                                    <span className="text-xs text-red-600 font-semibold">{kmzData.coordinates.length}</span>
                                 </div>
                             )}
                             {kmzData.polygons && kmzData.polygons.length > 0 && (
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                                    <span className="text-xs text-gray-600">
-                                        Area KMZ ({kmzData.polygons.length})
-                                    </span>
+                                <div className="flex items-center justify-between p-2 bg-purple-50 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-2.5 h-2.5 bg-purple-500 rounded-full shadow-sm"></div>
+                                        <span className="text-xs font-medium text-gray-700">Area KMZ</span>
+                                    </div>
+                                    <span className="text-xs text-purple-600 font-semibold">{kmzData.polygons.length}</span>
                                 </div>
                             )}
                             {kmzData.lines && kmzData.lines.length > 0 && (
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                                    <span className="text-xs text-gray-600">
-                                        Garis KMZ ({kmzData.lines.length})
-                                    </span>
+                                <div className="flex items-center justify-between p-2 bg-purple-50 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-2.5 h-2.5 bg-purple-500 rounded-full shadow-sm"></div>
+                                        <span className="text-xs font-medium text-gray-700">Garis KMZ</span>
+                                    </div>
+                                    <span className="text-xs text-purple-600 font-semibold">{kmzData.lines.length}</span>
                                 </div>
                             )}
                         </>
@@ -1445,41 +1506,35 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
                     
                     {/* KMZ Loading State */}
                     {kmzLoading && (
-                        <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 border border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-xs text-gray-600">Memuat data KMZ...</span>
+                        <div className="flex items-center justify-between p-2 bg-purple-50 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2.5 h-2.5 border border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                <span className="text-xs font-medium text-gray-700">Memuat data KMZ...</span>
+                            </div>
                         </div>
                     )}
                     
                     {/* KMZ Error */}
                     {kmzError && (
-                        <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
-                            Error KMZ: {kmzError}
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg font-medium">
+                            ⚠️ {kmzError}
                         </div>
                     )}
 
                     {/* Error Messages */}
                     {error && (
-                        <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
-                            {error}
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg font-medium">
+                            ⚠️ {error}
                         </div>
                     )}
                     {mapError && (
-                        <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
-                            {mapError}
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg font-medium">
+                            ⚠️ {mapError}
                         </div>
                     )}
-
-                    {/* Refresh Button */}
-                    <button
-                        onClick={getCurrentLocation}
-                        disabled={loading}
-                        className="w-full mt-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white text-xs py-2 px-3 rounded-lg transition-colors"
-                    >
-                        {loading ? 'Memuat...' : 'Refresh Lokasi'}
-                    </button>
                 </div>
             </div>
+            )}
         </div>
     );
 };
