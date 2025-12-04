@@ -231,22 +231,24 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
     }, [pageAnimation]);
 
     const renderHomeContent = () => (
-        <div className={`flex-1 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pb-20 min-h-screen transition-all duration-300 ${pageAnimation}`}>
-            {/* Modern Header with Glassmorphism - Fixed Position */}
+        <div className={`flex-1 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pb-20 sm:pb-24 min-h-screen transition-all duration-300 ${pageAnimation}`}>
+            {/* Modern Header with Glassmorphism - Optimized for Mobile & Desktop */}
             <div className="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200 fixed top-0 left-0 right-0 z-[9999]">
-                <div className="px-6 py-6">
+                <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            {/* Profile Avatar */}
-                            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                <Home size={24} className="text-white" />
+                        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
+                            {/* Profile Avatar - Responsive Size */}
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                                <Home size={18} className="text-white sm:hidden" />
+                                <Home size={20} className="text-white hidden sm:block md:hidden" />
+                                <Home size={24} className="text-white hidden md:block" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                                <h1 className="text-base sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                                     Dashboard
                                 </h1>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    Selamat datang, {user?.displayName || user?.email?.split('@')[0] || 'Petugas'}
+                                <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1 truncate max-w-[160px] sm:max-w-none">
+                                    Selamat datang, <span className="hidden sm:inline">{user?.displayName || user?.email?.split('@')[0] || 'Petugas'}</span><span className="sm:hidden">{(user?.displayName || user?.email?.split('@')[0] || 'Petugas').substring(0, 10)}</span>
                                 </p>
                             </div>
                         </div>
@@ -264,21 +266,23 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                                 }
                                 onLogout();
                             }}
-                            className="p-3 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-600 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg group"
+                            className="p-2 sm:p-2.5 md:p-3 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg group"
                             title="Keluar"
                         >
-                            <LogOut size={20} className="group-hover:rotate-12 transition-transform duration-300" />
+                            <LogOut size={16} className="group-hover:rotate-12 transition-transform duration-300 sm:hidden" />
+                            <LogOut size={18} className="group-hover:rotate-12 transition-transform duration-300 hidden sm:block md:hidden" />
+                            <LogOut size={20} className="group-hover:rotate-12 transition-transform duration-300 hidden md:block" />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Enhanced Menu Grid */}
-            <div className="px-6 py-8 pt-32 relative z-10">
-                <div className="mb-6">
+            {/* Enhanced Menu Grid - Responsive Layout */}
+            <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 pt-20 sm:pt-24 md:pt-32 relative z-10">
+                <div className="mb-4 sm:mb-6">
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5 max-w-4xl mx-auto">
                     {[
                         { icon: "📋", title: "Daftar Survey", key: "daftar-survey", bgColor: "bg-blue-50", gradient: "from-blue-500 to-blue-600", requiresTask: true },
                         { icon: "📅", title: "Daftar Tugas", key: "daftar-tugas", bgColor: "bg-green-50", gradient: "from-green-500 to-green-600", requiresTask: false },
@@ -291,44 +295,51 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                                 <button
                                     onClick={() => handleMenuClick(menu.key)}
                                     disabled={isDisabled}
-                                    className={`w-full backdrop-blur-sm rounded-3xl p-6 shadow-lg border transition-all duration-300 group relative overflow-hidden ${
+                                    className={`w-full backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg border transition-all duration-300 group relative overflow-hidden ${
                                         isDisabled 
                                             ? 'bg-gray-100/90 border-gray-200/50 cursor-not-allowed opacity-60' 
                                             : 'bg-white/90 border-white/50 hover:shadow-xl hover:scale-[1.01] hover:-translate-y-0.5 active:scale-[0.99]'
                                     }`}
                                 >
                                     {/* Background Gradient Overlay */}
-                                    <div className={`absolute inset-0 bg-gradient-to-r ${menu.gradient} opacity-0 ${!isDisabled ? 'group-hover:opacity-5' : ''} transition-opacity duration-300 rounded-3xl`}></div>
+                                    <div className={`absolute inset-0 bg-gradient-to-r ${menu.gradient} opacity-0 ${!isDisabled ? 'group-hover:opacity-5' : ''} transition-opacity duration-300 rounded-2xl sm:rounded-3xl`}></div>
 
-                                    <div className="relative flex flex-col items-center text-center space-y-3">
-                                        {/* Icon Container */}
-                                        <div className={`w-16 h-16 ${isDisabled ? 'bg-gray-100' : menu.bgColor} rounded-2xl flex items-center justify-center shadow-sm ${!isDisabled ? 'group-hover:shadow-md group-hover:scale-105' : ''} transition-all duration-200`}>
-                                            <span className={`text-2xl ${isDisabled ? 'grayscale' : ''}`}>{menu.icon}</span>
+                                    <div className="relative flex flex-col items-center text-center space-y-2 sm:space-y-3">
+                                        {/* Icon Container - Responsive Size */}
+                                        <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 ${isDisabled ? 'bg-gray-100' : menu.bgColor} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-sm ${!isDisabled ? 'group-hover:shadow-md group-hover:scale-105' : ''} transition-all duration-200`}>
+                                            <span className={`text-xl sm:text-2xl ${isDisabled ? 'grayscale' : ''}`}>{menu.icon}</span>
                                         </div>
 
-                                        {/* Title */}
-                                        <h3 className={`text-sm font-bold transition-colors duration-200 leading-tight ${
+                                        {/* Title - Responsive Text */}
+                                        <h3 className={`text-xs sm:text-sm font-bold transition-colors duration-200 leading-tight px-1 ${
                                             isDisabled ? 'text-gray-500' : 'text-gray-800 group-hover:text-gray-900'
                                         }`}>
-                                            {menu.key === 'data-survey-valid' ? 'Upload Progress Tracking' : menu.title}
+                                            {menu.key === 'data-survey-valid' ? (
+                                                <>
+                                                    <span className="hidden sm:inline">Upload Progress Tracking</span>
+                                                    <span className="sm:hidden">Draft Offline</span>
+                                                </>
+                                            ) : menu.title}
                                         </h3>
 
-                                        {/* Warning or Arrow Indicator */}
+                                        {/* Warning or Arrow Indicator - Responsive Size */}
                                         {isDisabled ? (
-                                            <div className="w-8 h-8 bg-gray-300 rounded-xl flex items-center justify-center shadow-md">
-                                                <AlertTriangle size={16} className="text-gray-500" />
+                                            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-300 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+                                                <AlertTriangle size={14} className="text-gray-500 sm:hidden" />
+                                                <AlertTriangle size={16} className="text-gray-500 hidden sm:block" />
                                             </div>
                                         ) : (
-                                            <div className={`w-8 h-8 bg-gradient-to-r ${menu.gradient} rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200 group-hover:scale-105`}>
-                                                <ChevronRight size={16} className="text-white group-hover:translate-x-0.5 transition-transform duration-200" />
+                                            <div className={`w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r ${menu.gradient} rounded-lg sm:rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200 group-hover:scale-105`}>
+                                                <ChevronRight size={14} className="text-white group-hover:translate-x-0.5 transition-transform duration-200 sm:hidden" />
+                                                <ChevronRight size={16} className="text-white group-hover:translate-x-0.5 transition-transform duration-200 hidden sm:block" />
                                             </div>
                                         )}
 
                                         {/* Warning Text for Disabled Survey Menu */}
                                         {isDisabled && menu.key === 'daftar-survey' && (
-                                            <div className="absolute -bottom-2 left-0 right-0">
-                                                <div className="bg-amber-100 border border-amber-200 rounded-lg px-2 py-1">
-                                                    <p className="text-xs text-amber-700 font-medium">Mulai tugas dulu</p>
+                                            <div className="absolute -bottom-1 sm:-bottom-2 left-0 right-0">
+                                                <div className="bg-amber-100 border border-amber-200 rounded-md sm:rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1">
+                                                    <p className="text-[10px] sm:text-xs text-amber-700 font-medium">Mulai tugas dulu</p>
                                                 </div>
                                             </div>
                                         )}
@@ -340,40 +351,50 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                 </div>
             </div>
 
-            {/* Enhanced Quick Stats with Real Data */}
-            <div className="px-6 py-4 relative z-10">
-                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl p-6 border border-white/50 animate-fadeInUp" style={{ animationDelay: '400ms' }}>
-                    <div className="flex items-center justify-between mb-6">
+            {/* Enhanced Quick Stats with Real Data - Responsive */}
+            <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 relative z-10">
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-5 md:p-6 border border-white/50 animate-fadeInUp max-w-4xl mx-auto" style={{ animationDelay: '400ms' }}>
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Ringkasan Hari Ini</h2>
-                            <div className="flex items-center space-x-2 mt-1">
-                                <p className="text-sm text-gray-600">Status pekerjaan terkini</p>
+                            <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-900">Ringkasan Hari Ini</h2>
+                            <div className="flex items-center space-x-2 mt-0.5 sm:mt-1">
+                                <p className="text-xs sm:text-sm text-gray-600">Status pekerjaan terkini</p>
                                 {statsLoading && (
-                                    <RefreshCw size={14} className="text-blue-500 animate-spin" />
+                                    <>
+                                        <RefreshCw size={12} className="text-blue-500 animate-spin sm:hidden" />
+                                        <RefreshCw size={14} className="text-blue-500 animate-spin hidden sm:block" />
+                                    </>
                                 )}
                             </div>
                             {stats.lastUpdated && (
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">
                                     Diperbarui: {formatLastUpdated()}
                                 </p>
                             )}
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
                             <button
                                 onClick={refreshStats}
                                 disabled={statsLoading}
-                                className="p-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-xl transition-all duration-200 disabled:opacity-50"
+                                className="p-1.5 sm:p-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-lg sm:rounded-xl transition-all duration-200 disabled:opacity-50"
                                 title="Refresh Data"
                             >
-                                <RefreshCw size={16} className={statsLoading ? 'animate-spin' : ''} />
+                                <>
+                                    <RefreshCw size={14} className={`${statsLoading ? 'animate-spin' : ''} sm:hidden`} />
+                                    <RefreshCw size={16} className={`${statsLoading ? 'animate-spin' : ''} hidden sm:block`} />
+                                </>
                             </button>
-                            <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                                <Database size={20} className="text-white" />
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                                <>
+                                    <Database size={16} className="text-white sm:hidden" />
+                                    <Database size={18} className="text-white hidden sm:block md:hidden" />
+                                    <Database size={20} className="text-white hidden md:block" />
+                                </>
                             </div>
                         </div>
                     </div>
                     
-                                         <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
                          {[
                              { 
                                  value: statsLoading ? "..." : stats.surveysBaru?.toString() || "0", 
@@ -401,34 +422,38 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                              }
                          ].map((stat, index) => (
                             <div key={index} className="text-center group">
-                                <div className={`w-12 h-12 ${stat.bgColor} rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-200 shadow-sm`}>
-                                    <stat.icon size={20} className={stat.color} />
+                                <div className={`w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 ${stat.bgColor} rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-200 shadow-sm`}>
+                                    <>
+                                        <stat.icon size={16} className={`${stat.color} sm:hidden`} />
+                                        <stat.icon size={18} className={`${stat.color} hidden sm:block md:hidden`} />
+                                        <stat.icon size={20} className={`${stat.color} hidden md:block`} />
+                                    </>
                                 </div>
-                                                                 <div className={`text-2xl font-bold ${stat.color} mb-1 transition-all duration-200`}>
+                                <div className={`text-xl sm:text-2xl font-bold ${stat.color} mb-0.5 sm:mb-1 transition-all duration-200`}>
                                      {stat.value}
                                  </div>
-                                 <div className="text-xs text-gray-600 font-medium">{stat.label}</div>
+                                 <div className="text-[10px] sm:text-xs text-gray-600 font-medium leading-tight px-0.5">{stat.label}</div>
                                  {stat.subtitle && (
-                                     <div className="text-xs text-gray-500 mt-1">{stat.subtitle}</div>
+                                     <div className="text-[9px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">{stat.subtitle}</div>
                                  )}
                             </div>
                         ))}
                     </div>
 
-                                         {/* Additional Info */}
-                     <div className="mt-6 pt-4 border-t border-gray-100">
-                         <div className="grid grid-cols-2 gap-4 text-center">
-                             <div className="bg-gray-50 rounded-xl p-3">
-                                 <div className="text-lg font-bold text-gray-700">
+                    {/* Additional Info - Responsive */}
+                     <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
+                         <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 text-center">
+                             <div className="bg-gray-50 rounded-lg sm:rounded-xl p-2 sm:p-3">
+                                 <div className="text-base sm:text-lg font-bold text-gray-700">
                                      {statsLoading ? "..." : stats.totalSurveys?.toString() || "0"}
                                  </div>
-                                 <div className="text-xs text-gray-500">Total Survey</div>
+                                 <div className="text-[10px] sm:text-xs text-gray-500">Total Survey</div>
                              </div>
-                             <div className="bg-gray-50 rounded-xl p-3">
-                                 <div className="text-lg font-bold text-gray-700">
+                             <div className="bg-gray-50 rounded-lg sm:rounded-xl p-2 sm:p-3">
+                                 <div className="text-base sm:text-lg font-bold text-gray-700">
                                      {statsLoading ? "..." : stats.totalTasks?.toString() || "0"}
                                  </div>
-                                 <div className="text-xs text-gray-500">Total Tugas</div>
+                                 <div className="text-[10px] sm:text-xs text-gray-500">Total Tugas</div>
                              </div>
                          </div>
                      </div>

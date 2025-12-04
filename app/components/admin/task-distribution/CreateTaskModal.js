@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getAuth } from 'firebase/auth';
 import dynamic from 'next/dynamic';
 
@@ -31,8 +32,16 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
   const [loadingSurveyors, setLoadingSurveyors] = useState(true);
   const [mapData, setMapData] = useState(null);
   const [parsingFile, setParsingFile] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const excelFileInputRef = useRef(null);
   const kmzFileInputRef = useRef(null);
+
+  // Handle modal animation
+  useEffect(() => {
+    if (isOpen) {
+      setIsAnimating(true);
+    }
+  }, [isOpen]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -74,6 +83,36 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
       }
     }
   }, [isOpen]);
+
+  // Prevent body scroll and handle ESC key when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+      
+      // Handle ESC key
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          handleClose();
+        }
+      };
+      
+      document.addEventListener('keydown', handleEscape);
+      
+      return () => {
+        document.body.style.overflow = 'unset';
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
+  }, [isOpen]);
+
+  // Handle close with animation
+  const handleClose = () => {
+    setIsAnimating(false);
+    setTimeout(() => {
+      onClose();
+    }, 300); // Match animation duration
+  };
 
   // Test koneksi API
   const testAPIConnection = async () => {
@@ -433,12 +472,29 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto">
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-6 text-white relative overflow-hidden shrink-0">
+  // Handle click outside to close modal
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
+  // Use portal to render modal outside the parent DOM hierarchy
+  return createPortal(
+    <div 
+      className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] overflow-hidden transition-opacity duration-300 ${
+        isAnimating ? 'opacity-100' : 'opacity-0'
+      }`}
+      onClick={handleBackdropClick}
+    >
+      <div className="h-full flex items-center justify-center p-0 md:p-6">
+        <div 
+          className={`bg-white w-full h-full md:h-auto md:rounded-2xl shadow-2xl md:max-w-4xl md:max-h-[95vh] overflow-hidden flex flex-col transition-all duration-300 ${
+            isAnimating ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >{/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-6 md:px-8 py-5 md:py-6 text-white relative overflow-hidden shrink-0">
           {/* Background Pattern */}
           <div className="absolute inset-0 bg-white/5">
             <div className="absolute inset-0" style={{
@@ -447,24 +503,24 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
           </div>
           
           <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-2xl font-bold tracking-tight">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight">
                   Buat Tugas {taskType === 'existing' ? 'Zona Existing' : 'Propose'}
                 </h2>
-                <p className="text-blue-100 text-sm mt-1 font-medium">
+                <p className="text-blue-100 text-xs md:text-sm mt-0.5 md:mt-1 font-medium">
                   {taskType === 'existing' ? 'Survey area yang sudah terpasang listrik' : 'Survey area baru untuk pengembangan'}
                 </p>
               </div>
             </div>
             <button
-              onClick={onClose}
-              className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center hover:bg-white/30 transition-all duration-200 shadow-lg hover:shadow-xl"
+              onClick={handleClose}
+              className="w-9 h-9 md:w-10 md:h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center hover:bg-white/30 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
               title="Tutup Modal"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,21 +531,19 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
         </div>
 
                 {/* Content */}
-        <div className="p-8 overflow-y-auto flex-1 min-h-0">
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-r-lg">
+        <div className="p-4 md:p-6 lg:p-8 overflow-y-auto flex-1 min-h-0 bg-gray-50">{error && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-r-lg shadow-sm">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                                 <span className="text-red-900 font-medium">{error}</span>
+                                 <span className="text-red-900 font-medium text-sm">{error}</span>
               </div>
             </div>
           )}
 
-          <div className="space-y-8">
-            {/* Judul Tugas */}
-            <div className="group">
+          <div className="space-y-6 md:space-y-8">{/* Judul Tugas */}
+            <div className="group bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
                 <div className="w-5 h-5 bg-blue-100 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -504,11 +558,11 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-4 pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400 bg-gray-50 focus:bg-white shadow-sm"
+                  className="w-full px-4 py-3.5 md:py-4 pl-11 md:pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400 bg-gray-50 focus:bg-white shadow-sm text-sm md:text-base"
                   placeholder="Masukkan judul tugas yang jelas dan deskriptif"
                 />
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
@@ -516,7 +570,7 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
             </div>
 
             {/* Surveyor */}
-            <div className="group">
+            <div className="group bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
                 <div className="w-5 h-5 bg-green-100 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -531,7 +585,7 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   value={formData.surveyorId}
                   onChange={handleInputChange}
                   disabled={loadingSurveyors}
-                  className="w-full px-4 py-4 pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 text-gray-900 bg-gray-50 focus:bg-white shadow-sm appearance-none"
+                  className="w-full px-4 py-3.5 md:py-4 pl-11 md:pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 text-gray-900 bg-gray-50 focus:bg-white shadow-sm appearance-none text-sm md:text-base"
                 >
                   <option value="" className="text-gray-500">
                     {loadingSurveyors ? 'Memuat surveyor...' : 
@@ -544,7 +598,7 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   ))}
                 </select>
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
@@ -567,7 +621,7 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
             </div>
 
             {/* Deadline */}
-            <div className="group">
+            <div className="group bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
                 <div className="w-5 h-5 bg-purple-100 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -582,10 +636,10 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   name="deadline"
                   value={formData.deadline}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-4 pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 bg-gray-50 focus:bg-white shadow-sm"
+                  className="w-full px-4 py-3.5 md:py-4 pl-11 md:pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 bg-gray-50 focus:bg-white shadow-sm text-sm md:text-base"
                 />
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -593,7 +647,7 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
             </div>
 
             {/* Deskripsi */}
-            <div className="group">
+            <div className="group bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
                 <div className="w-5 h-5 bg-orange-100 rounded-lg flex items-center justify-center">
                   <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -608,11 +662,11 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows="4"
-                  className="w-full px-4 py-4 pl-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-gray-900 placeholder-gray-400 bg-gray-50 focus:bg-white shadow-sm"
+                  className="w-full px-4 py-3.5 md:py-4 pl-11 md:pl-12 pt-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-gray-900 placeholder-gray-400 bg-gray-50 focus:bg-white shadow-sm text-sm md:text-base"
                   placeholder="Jelaskan detail tugas, lokasi, dan instruksi khusus untuk surveyor"
                 />
                 <div className="absolute left-4 top-4">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 md:w-5 md:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
@@ -623,11 +677,16 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
 
                           {/* Excel/CSV File Upload - Hanya untuk Propose */}
               {taskType === 'propose' && (
-                <div>
-                 <label className="block text-sm font-semibold text-gray-900 mb-2">
+                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
+                   <div className="w-5 h-5 bg-green-100 rounded-lg flex items-center justify-center">
+                     <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                     </svg>
+                   </div>
                    Upload File Excel/CSV
                  </label>
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-colors">
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-5 md:p-6 hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer">
                   <input
                     ref={excelFileInputRef}
                     type="file"
@@ -636,16 +695,18 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                     className="hidden"
                     id="excel-file-upload"
                   />
-                  <label htmlFor="excel-file-upload" className="cursor-pointer">
+                  <label htmlFor="excel-file-upload" className="cursor-pointer block">
                     <div className="text-center">
-                      <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                       <p className="text-gray-900 font-medium">
-                         {excelFile ? excelFile.name : 'Klik untuk memilih file Excel/CSV'}
+                      <div className="mx-auto w-14 h-14 md:w-16 md:h-16 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+                        <svg className="w-7 h-7 md:w-8 md:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                       <p className="text-gray-900 font-semibold text-sm md:text-base">
+                         {excelFile ? `📄 ${excelFile.name}` : 'Klik untuk memilih file Excel/CSV'}
                        </p>
-                       <p className="text-gray-500 text-sm mt-1">
-                         Format yang didukung: .xlsx, .xls, .csv
+                       <p className="text-gray-500 text-xs md:text-sm mt-2">
+                         Format: .xlsx, .xls, .csv (Maks. 10MB)
                        </p>
                     </div>
                   </label>
@@ -664,11 +725,16 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
               )}
 
                           {/* KMZ/KML File Upload */}
-              <div>
-               <label className="block text-sm font-semibold text-gray-900 mb-2">
+              <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+               <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
+                 <div className="w-5 h-5 bg-indigo-100 rounded-lg flex items-center justify-center">
+                   <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
+                   </svg>
+                 </div>
                  Upload File KMZ/KML {taskType === 'existing' && <span className="text-red-500">*</span>}
                </label>
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-colors">
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-5 md:p-6 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all cursor-pointer">
                 <input
                   ref={kmzFileInputRef}
                   type="file"
@@ -677,27 +743,29 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   className="hidden"
                   id="kmz-file-upload"
                 />
-                <label htmlFor="kmz-file-upload" className="cursor-pointer">
+                <label htmlFor="kmz-file-upload" className="cursor-pointer block">
                   <div className="text-center">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
-                    </svg>
-                                         <p className="text-gray-900 font-medium">
-                       {kmzFile ? kmzFile.name : 'Klik untuk memilih file KMZ/KML'}
+                    <div className="mx-auto w-14 h-14 md:w-16 md:h-16 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-7 h-7 md:w-8 md:h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
+                      </svg>
+                    </div>
+                     <p className="text-gray-900 font-semibold text-sm md:text-base">
+                       {kmzFile ? `🗺️ ${kmzFile.name}` : 'Klik untuk memilih file KMZ/KML'}
                      </p>
-                     <p className="text-gray-500 text-sm mt-1">
-                       Format yang didukung: .kmz, .kml
+                     <p className="text-gray-500 text-xs md:text-sm mt-2">
+                       Format: .kmz, .kml (Maks. 20MB)
                      </p>
                   </div>
                 </label>
               </div>
               {kmzFile && (
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                                         <span className="text-blue-900 text-sm font-medium">File KMZ/KML terpilih: {kmzFile.name}</span>
+                    <span className="text-indigo-900 text-sm font-medium">File terpilih: {kmzFile.name}</span>
                   </div>
                 </div>
               )}
@@ -799,50 +867,51 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
         </div>
 
         {/* Footer */}
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 border-t border-gray-200 shrink-0">
-          <div className="flex justify-between items-center">
-            {/* Progress Indicator */}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <div className="flex items-center gap-1">
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6 border-t border-gray-200 shrink-0">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            {/* Progress Indicator - Hidden on mobile */}
+            <div className="hidden md:flex items-center gap-3 text-xs lg:text-sm text-gray-600">
+              <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${formData.title ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                <span className={formData.title ? 'text-green-600' : 'text-gray-400'}>Judul</span>
+                <span className={formData.title ? 'text-green-600 font-medium' : 'text-gray-400'}>Judul</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${formData.surveyorId ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                <span className={formData.surveyorId ? 'text-green-600' : 'text-gray-400'}>Surveyor</span>
+                <span className={formData.surveyorId ? 'text-green-600 font-medium' : 'text-gray-400'}>Surveyor</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${formData.description ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                <span className={formData.description ? 'text-green-600' : 'text-gray-400'}>Deskripsi</span>
+                <span className={formData.description ? 'text-green-600 font-medium' : 'text-gray-400'}>Deskripsi</span>
               </div>
               {taskType === 'existing' && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <div className={`w-2 h-2 rounded-full ${kmzFile ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                  <span className={kmzFile ? 'text-green-600' : 'text-gray-400'}>File KMZ</span>
+                  <span className={kmzFile ? 'text-green-600 font-medium' : 'text-gray-400'}>File KMZ</span>
                 </div>
               )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
               <button
-                onClick={onClose}
-                className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm hover:shadow-md flex items-center gap-2"
+                onClick={handleClose}
+                className="flex-1 md:flex-none px-5 md:px-6 py-2.5 md:py-3 text-sm md:text-base text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm hover:shadow-md flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Batal
+                <span className="hidden sm:inline">Batal</span>
+                <span className="sm:hidden">Batal</span>
               </button>
               
               <button
                 onClick={createTask}
                 disabled={loading || !formData.title || !formData.surveyorId || !formData.description || (taskType === 'existing' && !kmzFile)}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:via-blue-800 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:hover:scale-100"
+                className="flex-1 md:flex-none px-6 md:px-8 py-2.5 md:py-3 text-sm md:text-base bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:via-blue-800 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:hover:scale-100"
               >
                 {loading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     <span>Membuat Tugas...</span>
                     <div className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">
                       Harap tunggu
@@ -898,7 +967,8 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

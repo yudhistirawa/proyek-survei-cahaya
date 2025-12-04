@@ -515,31 +515,108 @@ const SurveyAPJProposePage = ({ onBack }) => {
 
     const renderLocationField = () => (
         <div className="mb-3">
-            <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl p-4 hover:border-gray-300 transition-all">
+            <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl p-4 hover:border-gray-300 transition-all shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                    <span className="text-gray-800 font-medium">Titik Koordinat</span>
                     <div className="flex items-center gap-2">
-                        <button onClick={toggleRealtimeLocation} className={`p-2 rounded-lg transition-all duration-200 ${isRealtimeEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`} title={isRealtimeEnabled ? 'Matikan real-time' : 'Aktifkan real-time'}>
-                            {isRealtimeEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
+                        <span className="text-gray-800 font-medium">📍 Titik Koordinat</span>
+                        {isRealtimeEnabled && isWatching && locationStatus === 'success' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                Live Tracking
+                            </span>
+                        )}
+                        {locationStatus === 'loading' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                                Mencari GPS...
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={toggleRealtimeLocation} 
+                            className={`p-2 rounded-lg transition-all duration-200 ${
+                                isRealtimeEnabled 
+                                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            }`} 
+                            title={isRealtimeEnabled ? 'Matikan real-time tracking' : 'Aktifkan real-time tracking'}
+                        >
+                            {isRealtimeEnabled ? <Zap size={18} /> : <ZapOff size={18} />}
                         </button>
-                        {locationStatus === 'loading' && <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>}
-                        <MapPin size={18} className={`${locationStatus === 'success' ? 'text-green-500' : locationStatus === 'error' ? 'text-red-500' : 'text-gray-400'}`} />
+                        {!isRealtimeEnabled && (
+                            <button 
+                                onClick={refreshLocation} 
+                                className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+                                title="Refresh lokasi manual"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="relative">
-                    <input type="text" value={formData.titikKordinat} readOnly placeholder={locationStatus === 'loading' ? 'Mendapatkan lokasi...' : 'Koordinat akan terisi'} className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono cursor-not-allowed ${locationStatus === 'success' ? 'text-green-700 bg-green-50 border-green-200' : locationStatus === 'error' ? 'text-red-700 bg-red-50 border-red-200' : 'text-gray-500'}`} />
-                    {locationStatus === 'success' && <button onClick={() => setShowMapModal(true)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600" title="Lihat di peta"><MapPin size={14} /></button>}
+                    <input 
+                        type="text" 
+                        value={formData.titikKordinat} 
+                        readOnly 
+                        placeholder={
+                            locationStatus === 'loading' 
+                                ? 'Mencari lokasi GPS...' 
+                                : locationStatus === 'error'
+                                ? 'Gagal mendapatkan lokasi'
+                                : 'Koordinat akan terisi otomatis'
+                        } 
+                        className={`w-full border rounded-xl px-4 py-3 text-sm font-mono cursor-not-allowed transition-all ${
+                            locationStatus === 'success' 
+                                ? 'text-green-800 bg-green-50 border-green-300 shadow-sm' 
+                                : locationStatus === 'error' 
+                                ? 'text-red-700 bg-red-50 border-red-300' 
+                                : 'text-gray-500 bg-gray-50 border-gray-200 animate-pulse'
+                        }`} 
+                    />
+                    {locationAccuracy && locationStatus === 'success' && (
+                        <span className="absolute right-16 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded border shadow-sm">
+                            ±{Math.round(locationAccuracy)}m
+                        </span>
+                    )}
+                    {locationStatus === 'success' && (
+                        <button 
+                            onClick={() => setShowMapModal(true)} 
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm" 
+                            title="Lihat di peta"
+                        >
+                            <MapPin size={16} />
+                        </button>
+                    )}
                 </div>
-                <div className="mt-3 space-y-2 text-xs text-gray-600">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${isRealtimeEnabled && isWatching ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></span>
-                            <span>{isRealtimeEnabled && isWatching ? 'Real-time aktif' : 'Real-time nonaktif'}</span>
+                <div className="mt-3 space-y-2">
+                    <p className={`text-xs font-medium ${
+                        locationStatus === 'success' 
+                            ? 'text-green-700' 
+                            : locationStatus === 'error' 
+                            ? 'text-red-600' 
+                            : 'text-blue-600'
+                    }`}>
+                        {locationStatus === 'success' && isRealtimeEnabled && '✓ Lokasi berhasil didapatkan dan sedang di-tracking secara real-time'}
+                        {locationStatus === 'success' && !isRealtimeEnabled && '✓ Lokasi berhasil didapatkan (Real-time nonaktif)'}
+                        {locationStatus === 'loading' && '⏳ Sedang mencari sinyal GPS...'}
+                        {locationStatus === 'error' && `✗ ${locationError?.message || 'Gagal mendapatkan lokasi. Aktifkan GPS pada perangkat Anda.'}`}
+                    </p>
+                    {locationStatus === 'success' && realtimeLocation && (
+                        <div className="flex items-center gap-3 text-xs text-gray-600">
+                            <span className="flex items-center gap-1">
+                                🎯 Akurasi: <strong>±{Math.round(locationAccuracy)}m</strong>
+                            </span>
+                            {locationTimestamp && (
+                                <span className="flex items-center gap-1">
+                                    🕐 Update: <strong>{new Date(locationTimestamp).toLocaleTimeString('id-ID')}</strong>
+                                </span>
+                            )}
                         </div>
-                        {!isRealtimeEnabled && <button onClick={refreshLocation} className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600">Refresh</button>}
-                    </div>
-                    {locationAccuracy && <span>Akurasi: ±{Math.round(locationAccuracy)}m</span>}
-                    {locationError && <span className="text-red-600">{locationError.message || 'Gagal mendapatkan lokasi'}</span>}
+                    )}
                 </div>
             </div>
         </div>
@@ -634,7 +711,7 @@ const SurveyAPJProposePage = ({ onBack }) => {
 
                     <textarea value={formData.keterangan} onChange={(e) => handleInputChange('keterangan', e.target.value)} placeholder="Keterangan Tambahan" rows={3} className="w-full bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl px-4 py-3 text-black placeholder-gray-600" />
 
-                    <div className="pt-4">
+                    <div className="pt-4 pb-6">
                         <button onClick={handleSubmit} disabled={isSubmitting} className={`w-full font-bold py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${isSubmitting ? 'bg-gray-400' : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600'}`}>
                             <Save size={18} />
                             {isSubmitting ? 'Menyimpan...' : 'Simpan Survey'}
@@ -643,7 +720,17 @@ const SurveyAPJProposePage = ({ onBack }) => {
                 </div>
             </div>
 
-            {showMapModal && formData.titikKordinat && <MiniMapsComponent isOpen={showMapModal} onClose={() => setShowMapModal(false)} currentLocation={formData.titikKordinat} />}
+            {/* Mini Maps Component - Optimized for mobile and desktop */}
+            {user && (
+                <div className="fixed bottom-4 right-4 z-40 w-[280px] sm:w-[320px] md:w-[420px]">
+                    <MiniMapsComponent 
+                        userId={user.uid}
+                        taskId={typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null}
+                        previewPoint={realtimeLocation ? { lat: realtimeLocation.lat, lng: realtimeLocation.lon } : null}
+                    />
+                </div>
+            )}
+
             <ModernAlertModal isVisible={alertModal.isVisible} onClose={closeAlert} type={alertModal.type} title={alertModal.title} message={alertModal.message} autoClose={alertModal.type === 'success'} />
         </div>
     );

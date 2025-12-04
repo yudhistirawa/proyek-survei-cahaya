@@ -721,9 +721,23 @@ const SurveyTiangAPJProposePage = ({ onBack }) => {
 
   const renderLocationField = () => (
     <div className="mb-3">
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 transition-all">
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 transition-all shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-gray-800 font-medium">Titik Koordinat</span>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-800 font-medium">📍 Titik Koordinat</span>
+            {isRealtimeEnabled && isWatching && locationStatus === 'success' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Live Tracking
+              </span>
+            )}
+            {locationStatus === 'loading' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                Mencari GPS...
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {/* Real-time toggle button */}
             <button
@@ -735,22 +749,20 @@ const SurveyTiangAPJProposePage = ({ onBack }) => {
               }`}
               title={isRealtimeEnabled ? 'Matikan pelacakan real-time' : 'Aktifkan pelacakan real-time'}
             >
-              {isRealtimeEnabled ? <Zap size={16} /> : <ZapOff size={16} />}
+              {isRealtimeEnabled ? <Zap size={18} /> : <ZapOff size={18} />}
             </button>
             
-            {locationStatus === 'loading' && (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+            {!isRealtimeEnabled && (
+              <button 
+                onClick={refreshLocation} 
+                className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+                title="Refresh lokasi manual"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             )}
-            <MapPin
-              size={18}
-              className={`${
-                locationStatus === 'success'
-                  ? 'text-green-500'
-                  : locationStatus === 'error'
-                  ? 'text-red-500'
-                  : 'text-gray-400'
-              }`}
-            />
           </div>
         </div>
         
@@ -761,71 +773,60 @@ const SurveyTiangAPJProposePage = ({ onBack }) => {
             readOnly
             placeholder={
               locationStatus === 'loading'
-                ? 'Mendapatkan lokasi...'
+                ? 'Mencari lokasi GPS...'
                 : locationStatus === 'error'
                 ? 'Gagal mendapatkan lokasi'
                 : 'Koordinat akan terisi otomatis'
             }
-            className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono cursor-not-allowed ${
+            className={`w-full border rounded-xl px-4 py-3 text-sm font-mono cursor-not-allowed transition-all ${
               locationStatus === 'success'
-                ? 'text-green-700 bg-green-50 border-green-200'
+                ? 'text-green-800 bg-green-50 border-green-300 shadow-sm'
                 : locationStatus === 'error'
-                ? 'text-red-700 bg-red-50 border-red-200'
-                : 'text-gray-500'
+                ? 'text-red-700 bg-red-50 border-red-300'
+                : 'text-gray-500 bg-gray-50 border-gray-200 animate-pulse'
             }`}
           />
+          {locationAccuracy && locationStatus === 'success' && (
+            <span className="absolute right-16 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded border shadow-sm">
+              ±{Math.round(locationAccuracy)}m
+            </span>
+          )}
           {locationStatus === 'success' && (
             <button
               onClick={() => setShowMapModal(true)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow-sm"
               title="Lihat di peta"
             >
-              <MapPin size={14} />
+              <MapPin size={16} />
             </button>
           )}
         </div>
         
         {/* Status indicators */}
         <div className="mt-3 space-y-2">
-          {/* Real-time status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${
-                isRealtimeEnabled && isWatching ? 'bg-green-500 animate-pulse' : 'bg-gray-300'
-              }`}></span>
-              <span className="text-xs text-gray-600">
-                {isRealtimeEnabled && isWatching ? 'Pelacakan real-time aktif' : 'Pelacakan real-time nonaktif'}
+          <p className={`text-xs font-medium ${
+            locationStatus === 'success' 
+              ? 'text-green-700' 
+              : locationStatus === 'error' 
+              ? 'text-red-600' 
+              : 'text-blue-600'
+          }`}>
+            {locationStatus === 'success' && isRealtimeEnabled && '✓ Lokasi berhasil didapatkan dan sedang di-tracking secara real-time'}
+            {locationStatus === 'success' && !isRealtimeEnabled && '✓ Lokasi berhasil didapatkan (Real-time nonaktif)'}
+            {locationStatus === 'loading' && '⏳ Sedang mencari sinyal GPS...'}
+            {locationStatus === 'error' && `✗ ${locationError?.message || 'Gagal mendapatkan lokasi. Aktifkan GPS pada perangkat Anda.'}`}
+          </p>
+          
+          {locationStatus === 'success' && realtimeLocation && (
+            <div className="flex items-center gap-3 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                🎯 Akurasi: <strong>±{Math.round(locationAccuracy)}m</strong>
               </span>
-            </div>
-            
-            {!isRealtimeEnabled && (
-              <button
-                onClick={refreshLocation}
-                className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors duration-200"
-              >
-                Refresh Manual
-              </button>
-            )}
-          </div>
-          
-          {/* Accuracy indicator */}
-          {locationAccuracy && (
-            <div className="text-xs text-gray-500">
-              Akurasi: ±{Math.round(locationAccuracy)}m
-            </div>
-          )}
-          
-          {/* Error display */}
-          {locationStatus === 'error' && locationError && (
-            <div className="text-xs text-red-600">
-              {locationError.message || 'Gagal mendapatkan lokasi'}
-            </div>
-          )}
-          
-          {/* Last update time */}
-          {locationTimestamp && isRealtimeEnabled && (
-            <div className="text-xs text-gray-500">
-              Terakhir diperbarui: {new Date(locationTimestamp).toLocaleTimeString('id-ID')}
+              {locationTimestamp && (
+                <span className="flex items-center gap-1">
+                  🕐 Update: <strong>{new Date(locationTimestamp).toLocaleTimeString('id-ID')}</strong>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1000,21 +1001,25 @@ const SurveyTiangAPJProposePage = ({ onBack }) => {
         </div>
       )}
 
-      {/* Mini Maps Component - Always show if task is active */}
-      <MiniMapsComponent 
-        userId={user?.uid} 
-        taskId={typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null}
-        previewPoint={(() => {
-          try {
-            const [latStr, lngStr] = String(formData.titikKordinat || '').split(',').map(s => s.trim());
-            const lat = parseFloat(latStr);
-            const lng = parseFloat(lngStr);
-            return (Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null;
-          } catch {
-            return null;
-          }
-        })()}
-      />
+      {/* Mini Maps Component - Optimized for mobile and desktop */}
+      {user && (
+        <div className="fixed bottom-4 right-4 z-40 w-[280px] sm:w-[320px] md:w-[420px]">
+          <MiniMapsComponent 
+            userId={user.uid} 
+            taskId={typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null}
+            previewPoint={(() => {
+              try {
+                const [latStr, lngStr] = String(formData.titikKordinat || '').split(',').map(s => s.trim());
+                const lat = parseFloat(latStr);
+                const lng = parseFloat(lngStr);
+                return (Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null;
+              } catch {
+                return null;
+              }
+            })()}
+          />
+        </div>
+      )}
 
       {/* Modern Alert Modal */}
       <ModernAlertModal
