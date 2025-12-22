@@ -10,10 +10,11 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoints, isExpanded, onMapLoaded, onMapError, kmzData }) => {
+const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints, taskPolygons, routePoints, isExpanded, onMapLoaded, onMapError, kmzData }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const markersRef = useRef([]);
+    const surveyorProgressMarkersRef = useRef([]);
     const polygonsRef = useRef([]);
     const kmzMarkersRef = useRef([]);
     const kmzPolygonsRef = useRef([]);
@@ -51,6 +52,11 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
             icon = '👁️';
             size = 22;
             border = '2px dashed white';
+        } else if (type === 'progress') {
+            color = '#10B981'; // Hijau untuk progress surveyor
+            icon = '✓';
+            size = 20;
+            border = '3px solid white';
         } else {
             color = '#34A853'; // Default hijau
             icon = '📌';
@@ -403,6 +409,77 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
 
     }, [surveyPoints]);
 
+    // Update surveyor progress points
+    useEffect(() => {
+        if (!mapInstance.current) return;
+
+        // Remove existing progress markers
+        surveyorProgressMarkersRef.current.forEach(marker => {
+            try {
+                mapInstance.current.removeLayer(marker);
+            } catch (e) {
+                console.warn('Error removing progress marker:', e);
+            }
+        });
+        surveyorProgressMarkersRef.current = [];
+
+        // Add new progress markers
+        if (surveyorProgressPoints && Array.isArray(surveyorProgressPoints)) {
+            surveyorProgressPoints.forEach((point, index) => {
+                const { lat, lng, name, description, timestamp } = point;
+                
+                const icon = createCustomIcon('progress');
+
+                const marker = L.marker([lat, lng], {
+                    icon: icon,
+                    title: name || `Progress ${index + 1}`
+                }).addTo(mapInstance.current);
+
+                // Create popup content for progress points
+                const popupContent = `
+                    <div style="padding: 12px; max-width: 280px; font-family: Arial, sans-serif;">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <div style="
+                                width: 16px; 
+                                height: 16px; 
+                                background-color: #10B981; 
+                                border-radius: 50%; 
+                                margin-right: 8px;
+                            "></div>
+                            <h3 style="margin: 0; font-size: 16px; font-weight: bold; color: #333;">
+                                ${name || `Progress ${index + 1}`}
+                            </h3>
+                        </div>
+                        ${description ? `<p style="margin: 4px 0; font-size: 13px; color: #666;">${description}</p>` : ''}
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
+                            <p style="margin: 2px 0; font-size: 12px;"><strong>Latitude:</strong> ${lat.toFixed(6)}</p>
+                            <p style="margin: 2px 0; font-size: 12px;"><strong>Longitude:</strong> ${lng.toFixed(6)}</p>
+                            ${timestamp ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${new Date(timestamp).toLocaleString('id-ID')}</p>` : ''}
+                        </div>
+                        <div style="
+                            padding: 4px 8px; 
+                            background-color: #10B981; 
+                            color: white; 
+                            border-radius: 4px; 
+                            font-size: 11px; 
+                            font-weight: bold;
+                            text-align: center;
+                            margin-top: 8px;
+                        ">
+                            ✓ Progress Tersimpan
+                        </div>
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent);
+                surveyorProgressMarkersRef.current.push(marker);
+            });
+
+            console.log(`✅ MiniMapsLeaflet: Rendered ${surveyorProgressPoints.length} progress points`);
+        }
+
+    }, [surveyorProgressPoints]);
+
     // Update task polygons (same format as KMZMapComponent)
     useEffect(() => {
         if (!mapInstance.current || !taskPolygons) return;
@@ -425,6 +502,10 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
             
             taskPolygons.coordinates.forEach((coord, index) => {
                 try {
+                    // Get color from coordinate style or use default
+                    const markerColor = coord.style?.fillColor || coord.style?.strokeColor || '#DC2626';
+                    const markerBorder = coord.style?.strokeColor || '#ffffff';
+                    
                     const marker = L.marker([coord.lat, coord.lng], {
                         icon: L.divIcon({
                             className: 'task-coordinate-marker',
@@ -432,8 +513,8 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                                 <div style="
                                     width: 20px; 
                                     height: 20px; 
-                                    background-color: #DC2626; 
-                                    border: 2px solid white; 
+                                    background-color: ${markerColor}; 
+                                    border: 2px solid ${markerBorder}; 
                                     border-radius: 50%; 
                                     display: flex; 
                                     align-items: center; 
@@ -451,14 +532,13 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                         })
                     }).addTo(mapInstance.current);
 
-                    // Add popup with detailed info
+                    // Add popup with detailed info from KMZ
                     const popupContent = `
                         <div style="padding: 10px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
-                            <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #DC2626; border-bottom: 2px solid #DC2626; padding-bottom: 4px;">
-                                📍 Titik Koordinat ${index + 1}
+                            <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: ${markerColor}; border-bottom: 2px solid ${markerColor}; padding-bottom: 4px;">
+                                📍 ${coord.name || `Titik Koordinat ${index + 1}`}
                             </h3>
-                            ${coord.name ? `<p style="margin: 6px 0; font-size: 13px; font-weight: 500; color: #333;">${coord.name}</p>` : ''}
-                            ${coord.description ? `<p style="margin: 4px 0; font-size: 11px; color: #666; font-style: italic;">${coord.description}</p>` : ''}
+                            ${coord.description ? `<p style="margin: 6px 0; font-size: 12px; color: #666; line-height: 1.4;">${coord.description}</p>` : ''}
                             <div style="margin: 8px 0; padding: 6px; background: #F3F4F6; border-radius: 4px;">
                                 <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Latitude:</strong> ${coord.lat.toFixed(6)}</p>
                                 <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Longitude:</strong> ${coord.lng.toFixed(6)}</p>
@@ -466,7 +546,7 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                             </div>
                             <a href="https://www.google.com/maps?q=${coord.lat},${coord.lng}" 
                                target="_blank" 
-                               style="display: inline-block; margin-top: 6px; padding: 4px 8px; background: #DC2626; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                               style="display: inline-block; margin-top: 6px; padding: 4px 8px; background: ${markerColor}; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
                                 🗺️ Buka di Google Maps
                             </a>
                         </div>

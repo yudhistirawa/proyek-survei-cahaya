@@ -769,6 +769,45 @@ const CreateTaskModal = ({ isOpen, onClose, taskType, onTaskCreated }) => {
                   </div>
                 </div>
               )}
+              
+              {/* Info Box - Perbedaan Propose vs Existing */}
+              <div className={`mt-3 p-4 rounded-lg border-2 ${
+                taskType === 'propose' 
+                  ? 'bg-green-50 border-green-300' 
+                  : 'bg-blue-50 border-blue-300'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    taskType === 'propose' ? 'bg-green-500' : 'bg-blue-500'
+                  }`}>
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className={`font-semibold text-sm mb-1 ${
+                      taskType === 'propose' ? 'text-green-900' : 'text-blue-900'
+                    }`}>
+                      {taskType === 'propose' ? '📍 Tugas APJ Propose' : '🗺️ Tugas Zona Existing'}
+                    </h4>
+                    <p className={`text-xs leading-relaxed ${
+                      taskType === 'propose' ? 'text-green-800' : 'text-blue-800'
+                    }`}>
+                      {taskType === 'propose' ? (
+                        <>
+                          <strong>File KMZ berisi titik-titik koordinat</strong> yang akan ditampilkan sebagai marker terpisah di peta. 
+                          Setiap titik mewakili lokasi survei individual dengan detail koordinatnya.
+                        </>
+                      ) : (
+                        <>
+                          <strong>File KMZ berisi area/zona survei</strong> yang akan ditampilkan sebagai polygon di peta. 
+                          Koordinat akan membentuk zona area yang perlu disurvey.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
                          {/* Preview Map untuk KMZ/KML */}

@@ -20,6 +20,7 @@ import useDashboardStats from '../../hooks/useDashboardStats';
 import usePageTitle from '../../hooks/usePageTitle';
 import { UploadTrackingModal } from '../modals';
 import SuccessAlertModal from '../modals/SuccessAlertModal';
+import { getAllTaskProgress } from '../../lib/taskProgress';
 
 
 const SurveyorDashboardPage = ({ user, onLogout }) => {
@@ -192,13 +193,40 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
         setSuccessAlert({ open: true, message: 'Upload berhasil. Foto tersimpan di folder "surveyor_tracking".' });
     };
 
-    // Check for active task in sessionStorage
+    // Check for active task in sessionStorage AND Firestore
     useEffect(() => {
-        const checkActiveTask = () => {
+        const checkActiveTask = async () => {
             try {
+                // First check sessionStorage for quick access
                 const currentTaskId = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null;
                 const currentTaskStatus = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskStatus') : null;
-                setHasActiveTask(currentTaskId && currentTaskStatus !== 'completed');
+                
+                // If found in sessionStorage and not completed
+                if (currentTaskId && currentTaskStatus !== 'completed') {
+                    setHasActiveTask(true);
+                    console.log('✅ Active task found in sessionStorage:', currentTaskId);
+                    return;
+                }
+                
+                // If not in sessionStorage, check Firestore for persistent progress
+                if (user?.uid) {
+                    const allProgress = await getAllTaskProgress(user.uid);
+                    const activeProgress = allProgress.find(p => p.status === 'in_progress');
+                    
+                    if (activeProgress) {
+                        setHasActiveTask(true);
+                        // Restore to sessionStorage
+                        if (typeof window !== 'undefined') {
+                            sessionStorage.setItem('currentTaskId', activeProgress.taskId);
+                            sessionStorage.setItem('currentTaskStatus', 'in_progress');
+                            console.log('✅ Active task restored from Firestore:', activeProgress.taskId);
+                        }
+                        return;
+                    }
+                }
+                
+                // No active task found
+                setHasActiveTask(false);
             } catch (error) {
                 console.error('Error checking active task:', error);
                 setHasActiveTask(false);
@@ -218,7 +246,7 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                 window.removeEventListener('currentTaskChanged', handleTaskChange);
             }
         };
-    }, []);
+    }, [user?.uid]);
 
     // Add animation classes to useEffect
     useEffect(() => {

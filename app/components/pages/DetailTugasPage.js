@@ -9,6 +9,7 @@ import { auth } from '../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '../../lib/firebase';
+import { loadTaskProgress, saveTaskProgress, clearTaskProgress } from '../../lib/taskProgress';
 
 const DetailTugasPage = ({ onBack, taskData }) => {
     // Flexible date formatting helpers to avoid "Invalid Date" across different data types
@@ -68,6 +69,23 @@ const DetailTugasPage = ({ onBack, taskData }) => {
     // Track tugas aktif di session (agar satu tugas saja yang berjalan)
     const [activeTaskId, setActiveTaskId] = useState(null);
     const [activeTaskStatus, setActiveTaskStatus] = useState(null);
+    const [taskProgress, setTaskProgress] = useState(null);
+    const [surveyorPoints, setSurveyorPoints] = useState([]);
+
+    // Sample data jika tidak ada taskData - harus didefinisikan sebelum useEffect
+    const defaultTaskData = {
+        type: 'existing', // 'existing' atau 'propose'
+        judulTugas: 'Survey Pencahayaan Jalan',
+        linkMymaps: 'https://mymaps.google.com/example',
+        deskripsi: 'Melakukan survey pencahayaan di area yang telah ditentukan. Pastikan semua titik lampu tercatat dengan baik dan koordinat GPS akurat.',
+        jalanList: [
+            { id: 'Id Jalan 1', detail: 'Jalan Sudirman Km 1-2' },
+            { id: 'Id Jalan 2', detail: 'Jalan Thamrin Km 0-1' },
+            { id: 'Id jalan 3', detail: 'Jalan MH Thamrin Km 1-2' }
+        ]
+    };
+
+    const task = taskData || defaultTaskData;
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -76,6 +94,64 @@ const DetailTugasPage = ({ onBack, taskData }) => {
 
         return () => unsubscribe();
     }, []);
+
+    // Load task progress from Firestore when task is loaded
+    useEffect(() => {
+        const loadProgress = async () => {
+            if (user && task?.id) {
+                const progress = await loadTaskProgress(user.uid, task.id);
+                if (progress) {
+                    setTaskProgress(progress);
+                    setSurveyorPoints(progress.surveyorPoints || []);
+                    console.log('✅ Loaded task progress:', progress);
+                    
+                    // If task was in progress, restore session
+                    if (progress.status === 'in_progress') {
+                        setTaskStatus('in_progress');
+                        setShowMiniMaps(true);
+                        
+                        // Restore sessionStorage for continuity
+                        try {
+                            sessionStorage.setItem('currentTaskId', task.id);
+                            sessionStorage.setItem('currentTaskStatus', 'in_progress');
+                            if (task.mapData) {
+                                sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
+                            }
+                            window.dispatchEvent(new Event('currentTaskChanged'));
+                            console.log('✅ Task session restored from progress');
+                        } catch (e) {
+                            console.warn('Failed to restore session:', e);
+                        }
+                    }
+                }
+            }
+        };
+
+        loadProgress();
+    }, [user, task?.id]);
+
+    // Listen for surveyor point updates
+    useEffect(() => {
+        const handlePointAdded = async (event) => {
+            if (user && task?.id && event.detail) {
+                const newPoint = event.detail;
+                const updatedPoints = [...surveyorPoints, newPoint];
+                setSurveyorPoints(updatedPoints);
+                
+                // Save to Firestore
+                await saveTaskProgress(user.uid, task.id, {
+                    surveyorPoints: updatedPoints,
+                    totalPoints: updatedPoints.length,
+                    lastUpdated: new Date().toISOString()
+                });
+                
+                console.log('✅ Surveyor point saved:', newPoint);
+            }
+        };
+
+        window.addEventListener('surveyorPointAdded', handlePointAdded);
+        return () => window.removeEventListener('surveyorPointAdded', handlePointAdded);
+    }, [user, task?.id, surveyorPoints]);
 
     // Sinkronkan status tugas aktif dari sessionStorage
     useEffect(() => {
@@ -96,21 +172,6 @@ const DetailTugasPage = ({ onBack, taskData }) => {
             if (typeof window !== 'undefined') window.removeEventListener('currentTaskChanged', onChange);
         };
     }, []);
-
-    // Sample data jika tidak ada taskData
-    const defaultTaskData = {
-        type: 'existing', // 'existing' atau 'propose'
-        judulTugas: 'Survey Pencahayaan Jalan',
-        linkMymaps: 'https://mymaps.google.com/example',
-        deskripsi: 'Melakukan survey pencahayaan di area yang telah ditentukan. Pastikan semua titik lampu tercatat dengan baik dan koordinat GPS akurat.',
-        jalanList: [
-            { id: 'Id Jalan 1', detail: 'Jalan Sudirman Km 1-2' },
-            { id: 'Id Jalan 2', detail: 'Jalan Thamrin Km 0-1' },
-            { id: 'Id jalan 3', detail: 'Jalan MH Thamrin Km 1-2' }
-        ]
-    };
-
-    const task = taskData || defaultTaskData;
     
     // Ambil waktu server dan update berkala agar realtime
     useEffect(() => {
@@ -230,6 +291,17 @@ const DetailTugasPage = ({ onBack, taskData }) => {
     };
 
     const handleStartTask = async () => {
+        // Cegah mulai tugas jika sudah in_progress
+        if (taskStatus === 'in_progress' || taskStatus === 'started') {
+            alert('Tugas ini sudah dimulai dan sedang berlangsung. Silakan selesaikan tugas terlebih dahulu.');
+            return;
+        }
+        
+        if (taskStatus === 'completed') {
+            alert('Tugas ini sudah selesai dan tidak dapat dimulai kembali.');
+            return;
+        }
+        
         // Cegah mulai tugas baru jika ada tugas lain yang sedang berjalan
         try {
             const existingId = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null;
@@ -265,6 +337,20 @@ const DetailTugasPage = ({ onBack, taskData }) => {
 
         // Update local task status
         setTaskStatus('in_progress');
+        console.log('🔄 Task status changed to in_progress');
+        
+        // Save progress to Firestore
+        if (user && task.id) {
+            await saveTaskProgress(user.uid, task.id, {
+                status: 'in_progress',
+                startedAt: new Date().toISOString(),
+                surveyorPoints: [],
+                taskData: {
+                    title: task.judulTugas || task.title || 'Tugas Survey',
+                    taskType: task.taskType || task.type || 'existing'
+                }
+            });
+        }
         
         // Simpan KMZ & destinasi di sessionStorage agar dapat diakses FloatingMapsButton
         try {
@@ -341,8 +427,21 @@ const DetailTugasPage = ({ onBack, taskData }) => {
     };
 
     const handleCompleteTask = async () => {
+        console.log('🎯 handleCompleteTask called');
+        
         // Update task status
         setTaskStatus('completed');
+        console.log('🔄 Task status changed to completed');
+        
+        // Clear progress from Firestore when task is completed
+        if (user && task?.id) {
+            await clearTaskProgress(user.uid, task.id);
+            console.log('✅ Task progress cleared from Firestore');
+        }
+        
+        // Clear surveyor points
+        setSurveyorPoints([]);
+        setTaskProgress(null);
         
         // Set completion time (gunakan waktu server)
         let completionTime = serverNow;
@@ -490,68 +589,6 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                         )}
                     </div>
 
-                    {/* Mulai Tugas / Status Tugas */}
-                    <div className="mb-4">
-                        {taskStatus === 'pending' && (
-                            <button
-                                onClick={handleStartTask}
-                                className="w-full bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-left flex items-center justify-between hover:bg-green-100 transition-colors duration-200"
-                            >
-                                <span className="text-green-700 font-medium">Mulai Tugas</span>
-                                <Play size={16} className="text-green-500" />
-                            </button>
-                        )}
-                        
-                        {taskStatus === 'started' && (
-                            <button
-                                disabled
-                                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-left flex items-center justify-between cursor-not-allowed"
-                            >
-                                <span className="text-gray-500 font-medium">Tugas Sedang Berlangsung</span>
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                            </button>
-                        )}
-                        
-                        {taskStatus === 'completed' && (
-                            <div className="w-full bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-left">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-blue-700 font-medium">Tugas Selesai</span>
-                                    <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                                    </div>
-                                </div>
-                                {task.completedAt && (
-                                    <div className="text-blue-600 text-sm">
-                                        Selesai pada: {formatDateTime(task.completedAt)}
-                                    </div>
-                                )}
-                                {!task.completedAt && taskStatus === 'completed' && (
-                                    <div className="text-blue-600 text-sm">
-                                        Selesai pada: {formatDateTime(new Date())}
-                                    </div>
-                                )}
-                                <div className="text-blue-600 text-xs mt-1">
-                                    Tugas ini sudah selesai dan tidak dapat dimulai kembali
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Tombol Selesai Tugas (hanya muncul saat tugas sedang berlangsung) */}
-                    {taskStatus === 'started' && (
-                        <div className="mb-4">
-                            <button
-                                onClick={handleCompleteTask}
-                                className="w-full bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-left flex items-center justify-between hover:bg-orange-100 transition-colors duration-200"
-                            >
-                                <span className="text-orange-700 font-medium">Selesai Tugas</span>
-                                <div className="w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-                                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                                </div>
-                            </button>
-                        </div>
-                    )}
-
                     {/* Info Tugas */}
                     <div className="mb-4 space-y-3">
                         {/* Admin Pemberi Tugas */}
@@ -666,24 +703,83 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                         )}
                     </div>
 
-                    {/* Mulai Tugas */}
-                    <div className="mb-3">
-                        {activeTaskId && activeTaskId !== task.id && activeTaskStatus !== 'completed' ? (
-                            <button
-                                disabled
-                                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-left flex items-center justify-between cursor-not-allowed"
-                            >
-                                <span className="text-gray-500 font-medium">Selesaikan tugas lain terlebih dahulu</span>
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                            </button>
-                        ) : (
-                            <button
-                                onClick={handleStartTask}
-                                className="w-full bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-left flex items-center justify-between hover:bg-green-100 transition-colors duration-200"
-                            >
-                                <span className="text-green-700 font-medium">Mulai Tugas</span>
-                                <Play size={16} className="text-green-500" />
-                            </button>
+                    {/* Mulai Tugas / Status Tugas */}
+                    <div className="mb-4 space-y-3">
+                        {/* Button Mulai Tugas - disabled jika sudah in_progress atau completed */}
+                        <button
+                            onClick={handleStartTask}
+                            disabled={taskStatus === 'in_progress' || taskStatus === 'started' || taskStatus === 'completed'}
+                            className={`w-full border rounded-xl px-4 py-3 text-left flex items-center justify-between transition-colors duration-200 ${
+                                taskStatus === 'pending' 
+                                    ? 'bg-green-50 border-green-200 hover:bg-green-100 cursor-pointer' 
+                                    : 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+                            }`}
+                        >
+                            <span className={`font-medium ${
+                                taskStatus === 'pending' ? 'text-green-700' : 'text-gray-500'
+                            }`}>
+                                {taskStatus === 'pending' ? 'Mulai Tugas' : 'Tugas Sudah Dimulai'}
+                            </span>
+                            <Play size={16} className={taskStatus === 'pending' ? 'text-green-500' : 'text-gray-400'} />
+                        </button>
+
+                        {/* Button Selesaikan Tugas - enabled hanya jika in_progress */}
+                        <button
+                            onClick={handleCompleteTask}
+                            disabled={taskStatus !== 'in_progress' && taskStatus !== 'started'}
+                            className={`w-full border rounded-xl px-4 py-3 text-left flex items-center justify-between transition-colors duration-200 ${
+                                (taskStatus === 'in_progress' || taskStatus === 'started')
+                                    ? 'bg-orange-50 border-orange-200 hover:bg-orange-100 cursor-pointer' 
+                                    : 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+                            }`}
+                        >
+                            <span className={`font-medium ${
+                                (taskStatus === 'in_progress' || taskStatus === 'started') ? 'text-orange-700' : 'text-gray-500'
+                            }`}>
+                                {(taskStatus === 'in_progress' || taskStatus === 'started') 
+                                    ? 'Selesaikan Tugas' 
+                                    : taskStatus === 'completed' 
+                                        ? 'Tugas Sudah Selesai'
+                                        : 'Belum Memulai Tugas'
+                                }
+                            </span>
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                (taskStatus === 'in_progress' || taskStatus === 'started') ? 'bg-orange-500' : 'bg-gray-400'
+                            }`}>
+                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                        </button>
+
+                        {/* Status indicator */}
+                        {(taskStatus === 'in_progress' || taskStatus === 'started') && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-blue-700 font-medium text-sm">Tugas Sedang Berlangsung</span>
+                                </div>
+                                <p className="text-blue-600 text-xs mt-1">Progress akan tersimpan otomatis</p>
+                            </div>
+                        )}
+                        
+                        {taskStatus === 'completed' && (
+                            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs">✓</span>
+                                    </div>
+                                    <span className="text-green-700 font-medium">Tugas Telah Selesai</span>
+                                </div>
+                                {task.completedAt && (
+                                    <div className="text-green-600 text-sm text-center">
+                                        Selesai pada: {formatDateTime(task.completedAt)}
+                                    </div>
+                                )}
+                                {!task.completedAt && taskStatus === 'completed' && (
+                                    <div className="text-green-600 text-sm text-center">
+                                        Selesai pada: {formatDateTime(new Date())}
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -796,6 +892,8 @@ const DetailTugasPage = ({ onBack, taskData }) => {
             <MiniMapsComponent 
                 taskId={task.id} 
                 userId={user?.uid}
+                surveyorPoints={surveyorPoints}
+                taskProgress={taskProgress}
             />
         </div>
     );

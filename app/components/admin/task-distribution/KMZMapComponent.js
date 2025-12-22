@@ -167,25 +167,41 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
       mapData.coordinates.forEach((coord, index) => {
         console.log(`Adding marker ${index + 1}:`, coord);
         
+        // Use name from KMZ or default to "Koordinat N"
+        const markerName = coord.name || `Titik Survei ${index + 1}`;
+        const markerDescription = coord.description || '';
+        
         const marker = new window.google.maps.Marker({
           position: { lat: coord.lat, lng: coord.lng },
           map: map,
-          title: `Koordinat ${index + 1}`,
+          title: markerName,
           icon: {
             url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
             scaledSize: new window.google.maps.Size(32, 32)
           }
         });
 
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding: 8px;">
-              <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">Koordinat ${index + 1}</h3>
-              <p style="margin: 2px 0; font-size: 12px;">Lat: ${coord.lat.toFixed(6)}</p>
-              <p style="margin: 2px 0; font-size: 12px;">Lng: ${coord.lng.toFixed(6)}</p>
-              <p style="margin: 2px 0; font-size: 12px;">Alt: ${coord.alt || 0}m</p>
+        // Build info window content with name, description, and coordinates
+        let infoContent = `
+          <div style="padding: 8px; min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #2563eb;">${markerName}</h3>
+        `;
+        
+        if (markerDescription) {
+          infoContent += `<p style="margin: 4px 0 8px 0; font-size: 12px; color: #64748b; line-height: 1.4;">${markerDescription}</p>`;
+        }
+        
+        infoContent += `
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+              <p style="margin: 2px 0; font-size: 12px;"><strong>Latitude:</strong> ${coord.lat.toFixed(6)}</p>
+              <p style="margin: 2px 0; font-size: 12px;"><strong>Longitude:</strong> ${coord.lng.toFixed(6)}</p>
+              ${coord.alt ? `<p style="margin: 2px 0; font-size: 12px;"><strong>Altitude:</strong> ${coord.alt}m</p>` : ''}
             </div>
-          `
+          </div>
+        `;
+
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: infoContent
         });
 
         marker.addListener('click', () => {
@@ -225,10 +241,12 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
 
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 8px;">
-                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${polygon.name || `Polygon ${index + 1}`}</h3>
-                <p style="margin: 2px 0; font-size: 12px;">${polygon.description || 'Tidak ada deskripsi'}</p>
-                <p style="margin: 2px 0; font-size: 12px;"><small>${polygon.coordinates.length} koordinat</small></p>
+              <div style="padding: 8px; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #2563eb;">${polygon.name || `Polygon ${index + 1}`}</h3>
+                ${polygon.description ? `<p style="margin: 4px 0 8px 0; font-size: 12px; color: #64748b; line-height: 1.4;">${polygon.description}</p>` : ''}
+                <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+                  <p style="margin: 2px 0; font-size: 12px;"><strong>Jumlah Titik:</strong> ${polygon.coordinates.length}</p>
+                </div>
               </div>
             `
           });
@@ -275,10 +293,12 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
 
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 8px;">
-                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${line.name || `Line ${index + 1}`}</h3>
-                <p style="margin: 2px 0; font-size: 12px;">${line.description || 'Tidak ada deskripsi'}</p>
-                <p style="margin: 2px 0; font-size: 12px;"><small>${line.coordinates.length} koordinat</small></p>
+              <div style="padding: 8px; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #dc2626;">${line.name || `Garis ${index + 1}`}</h3>
+                ${line.description ? `<p style="margin: 4px 0 8px 0; font-size: 12px; color: #64748b; line-height: 1.4;">${line.description}</p>` : ''}
+                <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+                  <p style="margin: 2px 0; font-size: 12px;"><strong>Jumlah Titik:</strong> ${line.coordinates.length}</p>
+                </div>
               </div>
             `
           });
@@ -439,9 +459,13 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
       mapData.coordinates.forEach((coord, index) => {
         console.log(`Adding marker ${index + 1}:`, coord);
         
+        // Use name from KMZ or default
+        const markerName = coord.name || `Titik Survei ${index + 1}`;
+        const markerDescription = coord.description || '';
+        
         // Use different marker style for propose tasks
         const markerOptions = taskType === 'propose' ? {
-          title: `Titik Survei ${index + 1}`,
+          title: markerName,
           icon: L.divIcon({
             className: 'custom-marker-propose',
             html: `<div style="background-color: #ff6b35; border: 2px solid #fff; border-radius: 50%; width: 12px; height: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
@@ -449,26 +473,28 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
             iconAnchor: [6, 6]
           })
         } : {
-          title: `Koordinat ${index + 1}`
+          title: markerName
         };
         
         const marker = L.marker([coord.lat, coord.lng], markerOptions).addTo(map);
         
-        // Add popup with different content for propose tasks
-        const popupContent = taskType === 'propose' ? `
-          <div>
-            <h3 style="color: #ff6b35; margin: 0 0 8px 0;">Titik Survei ${index + 1}</h3>
-            <p style="margin: 2px 0; font-size: 12px;"><strong>Latitude:</strong> ${coord.lat.toFixed(6)}</p>
-            <p style="margin: 2px 0; font-size: 12px;"><strong>Longitude:</strong> ${coord.lng.toFixed(6)}</p>
-            <p style="margin: 2px 0; font-size: 12px;"><strong>Altitude:</strong> ${coord.alt || 0}m</p>
-            <p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">Tugas Propose - Titik Koordinat</p>
-          </div>
-        ` : `
-          <div>
-            <h3>Koordinat ${index + 1}</h3>
-            <p>Lat: ${coord.lat.toFixed(6)}</p>
-            <p>Lng: ${coord.lng.toFixed(6)}</p>
-            <p>Alt: ${coord.alt || 0}m</p>
+        // Build popup content with name, description, and coordinates
+        let popupContent = `
+          <div style="min-width: 200px;">
+            <h3 style="color: ${taskType === 'propose' ? '#ff6b35' : '#2563eb'}; margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${markerName}</h3>
+        `;
+        
+        if (markerDescription) {
+          popupContent += `<p style="margin: 4px 0 8px 0; font-size: 12px; color: #64748b; line-height: 1.4;">${markerDescription}</p>`;
+        }
+        
+        popupContent += `
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+              <p style="margin: 2px 0; font-size: 12px;"><strong>Latitude:</strong> ${coord.lat.toFixed(6)}</p>
+              <p style="margin: 2px 0; font-size: 12px;"><strong>Longitude:</strong> ${coord.lng.toFixed(6)}</p>
+              ${coord.alt ? `<p style="margin: 2px 0; font-size: 12px;"><strong>Altitude:</strong> ${coord.alt}m</p>` : ''}
+            </div>
+            ${taskType === 'propose' ? '<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">Tugas Propose - Titik Koordinat</p>' : ''}
           </div>
         `;
         
@@ -517,10 +543,12 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
           
           // Add popup for polygon
           const popupContent = `
-            <div>
-              <h3>${polygon.name || `Polygon ${index + 1}`}</h3>
-              <p>${polygon.description || 'Tidak ada deskripsi'}</p>
-              <p><small>${polygon.coordinates.length} koordinat</small></p>
+            <div style="min-width: 200px;">
+              <h3 style="color: #2563eb; margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${polygon.name || `Polygon ${index + 1}`}</h3>
+              ${polygon.description ? `<p style="margin: 4px 0 8px 0; font-size: 12px; color: #64748b; line-height: 1.4;">${polygon.description}</p>` : ''}
+              <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+                <p style="margin: 2px 0; font-size: 12px;"><strong>Jumlah Titik:</strong> ${polygon.coordinates.length}</p>
+              </div>
             </div>
           `;
           
@@ -558,10 +586,12 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
           
           // Add popup for line
           const popupContent = `
-            <div>
-              <h3>${line.name || `Line ${index + 1}`}</h3>
-              <p>${line.description || 'Tidak ada deskripsi'}</p>
-              <p><small>${line.coordinates.length} koordinat</small></p>
+            <div style="min-width: 200px;">
+              <h3 style="color: #dc2626; margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${line.name || `Garis ${index + 1}`}</h3>
+              ${line.description ? `<p style="margin: 4px 0 8px 0; font-size: 12px; color: #64748b; line-height: 1.4;">${line.description}</p>` : ''}
+              <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;">
+                <p style="margin: 2px 0; font-size: 12px;"><strong>Jumlah Titik:</strong> ${line.coordinates.length}</p>
+              </div>
             </div>
           `;
           

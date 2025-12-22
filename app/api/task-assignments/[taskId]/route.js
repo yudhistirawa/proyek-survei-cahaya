@@ -4,7 +4,8 @@ import { firebaseApp } from '../../../lib/firebase';
 
 export async function PATCH(request, { params }) {
     try {
-        const { taskId } = params || {};
+        const resolvedParams = await params;
+        const { taskId } = resolvedParams || {};
         const body = await request.json();
         const { status, completedAt, completedBy } = body;
 

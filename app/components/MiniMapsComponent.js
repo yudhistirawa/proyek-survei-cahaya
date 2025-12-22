@@ -20,7 +20,7 @@ const MiniMapsLeaflet = dynamic(() => import('./MiniMapsLeaflet'), {
     loading: () => <LoadingComponent message="Memuat peta..." />
 });
 
-const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
+const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propSurveyorPoints, taskProgress }) => {
     // Ensure only one MiniMaps instance is active at a time (singleton guard)
     const [isPrimaryInstance] = useState(() => {
         if (typeof window === 'undefined') return true;
@@ -39,6 +39,7 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [currentLocation, setCurrentLocation] = useState(null);
     const [surveyPoints, setSurveyPoints] = useState([]);
+    const [surveyorProgressPoints, setSurveyorProgressPoints] = useState([]);
     const [taskPolygons, setTaskPolygons] = useState([]);
     const [routePath, setRoutePath] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -66,6 +67,14 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
     const [kmzError, setKmzError] = useState(null);
     const watchIdRef = useRef(null);
     const prevTaskIdRef = useRef(null);
+
+    // Sync with surveyor progress points from props
+    useEffect(() => {
+        if (propSurveyorPoints && Array.isArray(propSurveyorPoints)) {
+            setSurveyorProgressPoints(propSurveyorPoints);
+            console.log('✅ MiniMapsComponent: Loaded surveyor progress points:', propSurveyorPoints.length);
+        }
+    }, [propSurveyorPoints]);
 
     // Load KMZ data from URL
     const loadKmzData = async (kmzUrl) => {
@@ -1501,6 +1510,7 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
                     <MiniMapsLeaflet
                         currentLocation={currentLocation}
                         surveyPoints={surveyPoints}
+                        surveyorProgressPoints={surveyorProgressPoints}
                         taskPolygons={kmzData}
                         routePoints={routePoints}
                         isExpanded={isExpanded}
@@ -1538,6 +1548,17 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
                         </div>
                         <span className="text-xs text-blue-600 font-semibold">{surveyPoints.filter(p => p.type === 'propose').length}</span>
                     </div>
+
+                    {/* Surveyor Progress Points */}
+                    {surveyorProgressPoints.length > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg border-2 border-green-300">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2.5 h-2.5 bg-green-600 rounded-full shadow-sm animate-pulse"></div>
+                                <span className="text-xs font-medium text-gray-700">Progress Anda</span>
+                            </div>
+                            <span className="text-xs text-green-600 font-bold">{surveyorProgressPoints.length}</span>
+                        </div>
+                    )}
                     
                     {/* Route Tracking */}
                     {routeTracking && (

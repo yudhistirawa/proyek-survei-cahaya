@@ -200,9 +200,13 @@ export class KMZParser {
         if (polygonElements.length > 0) {
           console.log(`KMZParser: Found ${polygonElements.length} polygon(s) in placemark ${i + 1}`);
           
+          let hasValidPolygon = false;
+          let extractedPointsFromPolygon = false;
+          const coordinatesBeforePolygon = coordinates.length;
+          
           for (let j = 0; j < polygonElements.length; j++) {
             const polygonElement = polygonElements[j];
-            const polygonCoords = this.extractPolygonCoordinates(polygonElement);
+            const polygonCoords = this.extractPolygonCoordinates(polygonElement, taskType);
             
             if (polygonCoords.length > 0) {
               console.log(`KMZParser: Adding polygon "${name}" with ${polygonCoords.length} coordinates`);
@@ -212,11 +216,37 @@ export class KMZParser {
                 coordinates: polygonCoords,
                 style: style // Add style info
               });
+              hasValidPolygon = true;
             } else {
-              console.warn(`KMZParser: Polygon "${name}" has no valid coordinates`);
+              console.warn(`KMZParser: Polygon "${name}" has no valid polygon coordinates, will try to extract as points`);
+              // Try to extract coordinates as points instead
+              const coordElement = polygonElement.getElementsByTagName('coordinates')[0];
+              if (coordElement) {
+                const coordText = coordElement.textContent.trim();
+                const parsedCoords = this.parseCoordinateString(coordText);
+                if (parsedCoords.length > 0) {
+                  console.log(`KMZParser: Extracted ${parsedCoords.length} point(s) from invalid polygon "${name}"`);
+                  parsedCoords.forEach(coord => {
+                    coordinates.push({
+                      ...coord,
+                      name,
+                      description,
+                      style: style
+                    });
+                  });
+                  extractedPointsFromPolygon = true;
+                }
+              }
             }
           }
-          continue; // Skip other processing for this placemark
+          if (hasValidPolygon) {
+            continue; // Skip other processing only if we found valid polygon
+          }
+          // If no valid polygon found but points were extracted from polygon element, skip to next placemark
+          if (extractedPointsFromPolygon) {
+            console.log(`KMZParser: Extracted ${coordinates.length - coordinatesBeforePolygon} points from polygon element(s), skipping to next placemark`);
+            continue;
+          }
         }
 
         // Handle LineString elements
@@ -232,13 +262,23 @@ export class KMZParser {
               const coordText = coordElement.textContent.trim();
               const parsedCoords = this.parseCoordinateString(coordText);
               
-              if (parsedCoords.length > 0) {
+              if (parsedCoords.length > 1) {
                 console.log(`KMZParser: Adding line "${name}" with ${parsedCoords.length} coordinates`);
                 lines.push({
                   name,
                   description,
                   coordinates: parsedCoords,
                   style: style // Add style info
+                });
+              } else if (parsedCoords.length === 1) {
+                console.log(`KMZParser: LineString has only 1 coordinate, treating as point`);
+                parsedCoords.forEach(coord => {
+                  coordinates.push({
+                    ...coord,
+                    name,
+                    description,
+                    style: style
+                  });
                 });
               }
             }
@@ -301,7 +341,18 @@ export class KMZParser {
               case 'polygon':
                 // Handle polygon (may have outer and inner rings)
                 const outerRing = this.extractOuterRing(parent);
-                if (outerRing.length > 0) {
+                
+                // For propose tasks, treat small polygons as points
+                if (taskType === 'propose' && outerRing.length > 0 && outerRing.length <= 10) {
+                  console.log(`KMZParser: Propose task - converting ${outerRing.length} polygon coordinates to points`);
+                  outerRing.forEach(coord => {
+                    coordinates.push({
+                      ...coord,
+                      name,
+                      description
+                    });
+                  });
+                } else if (outerRing.length > 0) {
                   console.log(`KMZParser: Adding polygon "${name}" with ${outerRing.length} coordinates`);
                   polygons.push({
                     name,
@@ -335,7 +386,18 @@ export class KMZParser {
                 if (polygonParent) {
                   console.log(`KMZParser: Found coordinates within Polygon, extracting outer ring`);
                   const outerRing = this.extractOuterRing(polygonParent);
-                  if (outerRing.length > 0) {
+                  
+                  // For propose tasks, treat small polygons as points
+                  if (taskType === 'propose' && outerRing.length > 0 && outerRing.length <= 10) {
+                    console.log(`KMZParser: Propose task - converting ${outerRing.length} polygon coordinates to points`);
+                    outerRing.forEach(coord => {
+                      coordinates.push({
+                        ...coord,
+                        name,
+                        description
+                      });
+                    });
+                  } else if (outerRing.length > 0) {
                     console.log(`KMZParser: Adding polygon "${name}" with ${outerRing.length} coordinates`);
                     polygons.push({
                       name,
@@ -471,11 +533,12 @@ export class KMZParser {
   /**
    * Extract polygon coordinates from polygon element
    * @param {Element} polygonElement - Polygon XML element
+   * @param {string} taskType - Type of task ('existing' or 'propose')
    * @returns {Array} Array of coordinate objects
    */
-  static extractPolygonCoordinates(polygonElement) {
+  static extractPolygonCoordinates(polygonElement, taskType = 'existing') {
     try {
-      console.log('KMZParser: Extracting polygon coordinates from element:', polygonElement.tagName);
+      console.log('KMZParser: Extracting polygon coordinates from element:', polygonElement.tagName, 'for task type:', taskType);
       
       // Look for outerBoundaryIs > LinearRing > coordinates
       let outerBoundary = polygonElement.querySelector('outerBoundaryIs LinearRing coordinates');
@@ -491,9 +554,36 @@ export class KMZParser {
       }
 
       if (outerBoundary) {
-        console.log('KMZParser: Found coordinates in polygon:', outerBoundary.textContent.substring(0, 100) + '...');
+        console.log('KMZParser: Found coordinates in polygon:', outerBoundary.textContent.substring(0, 200) + '...');
         const coords = this.parseCoordinateString(outerBoundary.textContent.trim());
         console.log('KMZParser: Parsed', coords.length, 'coordinates for polygon');
+        console.log('KMZParser: First few coords:', coords.slice(0, 3));
+        
+        // Validate: A polygon must have at least 3 different coordinates
+        // If it only has 1-2 coordinates, it's actually a point or line, not a polygon
+        // Use small tolerance for floating point comparison
+        const tolerance = 0.000001;
+        const uniqueCoords = coords.filter((coord, index, self) => 
+          index === self.findIndex(c => 
+            Math.abs(c.lat - coord.lat) < tolerance && Math.abs(c.lng - coord.lng) < tolerance
+          )
+        );
+        
+        console.log('KMZParser: Unique coordinates:', uniqueCoords.length, 'out of', coords.length);
+        console.log('KMZParser: Unique coords:', uniqueCoords);
+        
+        if (uniqueCoords.length < 3) {
+          console.warn(`KMZParser: Polygon has only ${uniqueCoords.length} unique coordinate(s), treating as point(s) instead`);
+          console.warn('KMZParser: This is NOT a valid polygon - returning empty array');
+          return []; // Return empty array so it will be handled as points later
+        }
+        
+        // For 'propose' task type, treat all Polygon elements with few coordinates as points
+        // This is because propose tasks typically contain survey points, not areas
+        if (taskType === 'propose' && uniqueCoords.length <= 10) {
+          console.warn(`KMZParser: Propose task detected - treating ${uniqueCoords.length} coordinates as individual points, not polygon`);
+          return []; // Return empty array so it will be handled as points later
+        }
         
         // Ensure polygon is closed (first and last point are the same)
         if (coords.length > 0) {

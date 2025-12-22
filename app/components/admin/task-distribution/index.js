@@ -18,6 +18,7 @@ const TaskDistribution = () => {
   const [priority, setPriority] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
+  const [taskType, setTaskType] = useState(''); // 'existing' or 'propose'
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -25,6 +26,22 @@ const TaskDistribution = () => {
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [adminId, setAdminId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdown = document.getElementById('task-type-dropdown');
+      if (dropdown && !dropdown.classList.contains('hidden')) {
+        const button = event.target.closest('button');
+        if (!button || !button.textContent.includes('Buat Tugas Baru')) {
+          dropdown.classList.add('hidden');
+        }
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // Fetch tasks from API with error handling and retry logic
   const fetchTasks = useCallback(async () => {
@@ -169,17 +186,75 @@ const TaskDistribution = () => {
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Segarkan
             </button>
-            <button
-              onClick={() => {
-                setSelectedTask(null);
-                setModalType('create');
-                setShowModal(true);
-              }}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Buat Tugas Baru
-            </button>
+            
+            {/* Dropdown Button untuk Pilih Tipe Tugas */}
+            <div className="relative inline-block text-left">
+              <button
+                onClick={() => {
+                  // Toggle dropdown - bisa gunakan state jika perlu
+                  const dropdown = document.getElementById('task-type-dropdown');
+                  dropdown.classList.toggle('hidden');
+                }}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Buat Tugas Baru
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              <div
+                id="task-type-dropdown"
+                className="hidden absolute right-0 mt-2 w-64 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setSelectedTask(null);
+                      setModalType('create');
+                      setTaskType('propose');
+                      setShowModal(true);
+                      document.getElementById('task-type-dropdown').classList.add('hidden');
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-start gap-3 transition-colors"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-900">Tugas APJ Propose</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Survey area baru dengan titik koordinat</div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setSelectedTask(null);
+                      setModalType('create');
+                      setTaskType('existing');
+                      setShowModal(true);
+                      document.getElementById('task-type-dropdown').classList.add('hidden');
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-start gap-3 transition-colors border-t border-gray-100"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-900">Tugas Zona Existing</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Survey area terpasang dengan zona polygon</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -264,7 +339,8 @@ const TaskDistribution = () => {
           setShowModal(false);
           setSelectedTask(null);
         }}
-        onSubmit={() => {
+        taskType={taskType}
+        onTaskCreated={() => {
           setShowModal(false);
           fetchTasks();
         }}
