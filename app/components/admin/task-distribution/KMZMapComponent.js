@@ -499,12 +499,20 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
             }
           }
           
+          // Use style from KMZ if available, otherwise use defaults
+          const style = polygon.style || {};
+          const fillColor = style.fillColor || '#3388ff';
+          const strokeColor = style.strokeColor || '#2E7D32';
+          const fillOpacity = style.fillOpacity !== undefined ? style.fillOpacity : 0.2;
+          const strokeOpacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.8;
+          const weight = style.strokeWidth || 2;
+          
           const poly = L.polygon(path, {
-            color: '#3388ff',
-            weight: 2,
-            opacity: 0.8,
-            fillColor: '#3388ff',
-            fillOpacity: 0.2
+            color: strokeColor,
+            weight: weight,
+            opacity: strokeOpacity,
+            fillColor: fillColor,
+            fillOpacity: fillOpacity
           }).addTo(map);
           
           // Add popup for polygon
@@ -536,10 +544,16 @@ const GoogleKMZMap = ({ mapData, taskType }) => {
           const path = line.coordinates.map(coord => [coord.lat, coord.lng]);
           console.log(`Line ${index + 1} path:`, path.slice(0, 3));
           
+          // Use style from KMZ if available
+          const style = line.style || {};
+          const color = style.strokeColor || '#FF0000';
+          const weight = style.strokeWidth || 3;
+          const opacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.8;
+          
           const polyline = L.polyline(path, {
-            color: '#FF0000',
-            weight: 3,
-            opacity: 0.8
+            color: color,
+            weight: weight,
+            opacity: opacity
           }).addTo(map);
           
           // Add popup for line

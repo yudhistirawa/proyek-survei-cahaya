@@ -18,6 +18,7 @@ const SurveyExistingPage = ({ onBack }) => {
     const [showMapModal, setShowMapModal] = useState(false);
     const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(true);
     const [formData, setFormData] = useState({
+        murni: '',
         namaJalan: '',
         namaGang: '',
         kepemilikanTiang: '',
@@ -170,6 +171,7 @@ const SurveyExistingPage = ({ onBack }) => {
     const locationStatus = getLocationStatus();
 
     const dropdownOptions = {
+        murni: ['Murni', 'Tidak Murni'],
         namaJalan: ['📍 Masukkan Lokasi Jalan & Gang'],
         lebarJalan: ['📏 Masukkan Lebar Jalan'],
         kepemilikanTiang: ['PLN', 'Pemko', 'Swadaya'],
@@ -1235,6 +1237,17 @@ const SurveyExistingPage = ({ onBack }) => {
                                         <span className="text-xs text-gray-500">Lampu swadaya masyarakat</span>
                                     </div>
                                 </button>
+                                
+                                <button
+                                    onClick={() => handleLampuTypeOption('Panel Surya')}
+                                    className="w-full px-4 py-3 text-left text-black hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-xl font-medium flex items-center gap-3 border border-gray-100 hover:border-blue-200"
+                                >
+                                    <span className="text-lg">☀️</span>
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-semibold">Panel Surya</span>
+                                        <span className="text-xs text-gray-500">Lampu dengan tenaga surya</span>
+                                    </div>
+                                </button>
                             </div>
                             
                             <div className="pt-3 border-t border-gray-100">
@@ -1521,6 +1534,49 @@ const SurveyExistingPage = ({ onBack }) => {
             );
         }
     };
+
+    const renderMurniField = () => (
+        <div className="mb-4 dropdown-container">
+            <div className="relative">
+                <button
+                    onClick={() => toggleDropdown('murni')}
+                    className="w-full backdrop-blur-sm border rounded-2xl px-5 py-4 text-left flex items-center justify-between transition-all duration-300 group bg-white/90 border-gray-200 hover:border-gray-300 hover:shadow-md"
+                >
+                    <div className="flex items-center space-x-2">
+                        {formData.murni ? (
+                            <>
+                                <span className="text-gray-400">✅</span>
+                                <span className="font-semibold text-gray-800">{formData.murni}</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-gray-400">✅</span>
+                                <span className="text-gray-600">Pilih status murni</span>
+                            </>
+                        )}
+                    </div>
+                    <ChevronDown 
+                        size={20} 
+                        className={`text-gray-400 group-hover:text-gray-600 transition-transform duration-300 ${openDropdowns.murni ? 'rotate-180' : ''}`} 
+                    />
+                </button>
+
+                {openDropdowns.murni && (
+                    <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden animate-slideDown">
+                        {dropdownOptions.murni.map((option, index) => (
+                            <button
+                                key={index}
+                                onClick={() => selectOption('murni', option)}
+                                className="w-full px-5 py-3 text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 border-b border-gray-100 last:border-0 font-medium text-gray-700 hover:text-gray-900"
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     const renderNamaJalanGangField = () => (
         <div className="mb-4 dropdown-container">
@@ -1938,6 +1994,7 @@ const SurveyExistingPage = ({ onBack }) => {
             <div className="px-3 sm:px-6 py-4 sm:py-6 pb-20 sm:pb-24 pt-28 sm:pt-32 relative z-10">
                 <div className="max-w-md mx-auto space-y-2 sm:space-y-3">
                     {/* Input Fields dengan spacing yang dioptimalkan untuk mobile */}
+                    {renderMurniField()}
                     {renderNamaJalanGangField()}
                     {renderLebarJalanField()}
                     

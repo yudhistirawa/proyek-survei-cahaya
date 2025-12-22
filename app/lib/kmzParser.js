@@ -186,8 +186,14 @@ export class KMZParser {
         const placemark = placemarks[i];
         const name = this.getElementText(placemark, 'name') || `Placemark ${i + 1}`;
         const description = this.getElementText(placemark, 'description') || '';
+        
+        // Extract style information
+        const style = this.extractStyle(placemark, xmlDoc);
 
-        console.log(`KMZParser: Processing placemark ${i + 1}: ${name}`);
+        console.log(`KMZParser: Processing placemark ${i + 1}: ${name}`, {
+          fillColor: style.fillColor,
+          strokeColor: style.strokeColor
+        });
 
         // Handle Polygon elements specifically
         const polygonElements = placemark.getElementsByTagName('Polygon');
@@ -203,7 +209,8 @@ export class KMZParser {
               polygons.push({
                 name,
                 description,
-                coordinates: polygonCoords
+                coordinates: polygonCoords,
+                style: style // Add style info
               });
             } else {
               console.warn(`KMZParser: Polygon "${name}" has no valid coordinates`);
@@ -230,7 +237,8 @@ export class KMZParser {
                 lines.push({
                   name,
                   description,
-                  coordinates: parsedCoords
+                  coordinates: parsedCoords,
+                  style: style // Add style info
                 });
               }
             }
@@ -253,7 +261,15 @@ export class KMZParser {
               
               if (parsedCoords.length > 0) {
                 console.log(`KMZParser: Adding point "${name}" with ${parsedCoords.length} coordinates`);
-                coordinates.push(...parsedCoords);
+                // Add style info to each coordinate point
+                parsedCoords.forEach(coord => {
+                  coordinates.push({
+                    ...coord,
+                    name,
+                    description,
+                    style: style
+                  });
+                });
               }
             }
           }
@@ -676,6 +692,117 @@ export class KMZParser {
   static getElementText(parent, tagName) {
     const element = parent.getElementsByTagName(tagName)[0];
     return element ? element.textContent.trim() : '';
+  }
+
+  /**
+   * Extract style information from placemark
+   * @param {Element} placemark - Placemark element
+   * @param {Document} xmlDoc - XML document
+   * @returns {Object} Style information
+   */
+  static extractStyle(placemark, xmlDoc) {
+    const styleInfo = {
+      fillColor: null,
+      strokeColor: null,
+      strokeWidth: 2,
+      fillOpacity: 0.3,
+      strokeOpacity: 1.0
+    };
+
+    try {
+      // Check for styleUrl reference
+      const styleUrl = this.getElementText(placemark, 'styleUrl');
+      if (styleUrl) {
+        const styleId = styleUrl.replace('#', '');
+        const styleElement = xmlDoc.getElementById(styleId) || 
+                           xmlDoc.querySelector(`Style[id="${styleId}"]`);
+        
+        if (styleElement) {
+          this.parseStyleElement(styleElement, styleInfo);
+        }
+      }
+
+      // Check for inline Style element
+      const inlineStyle = placemark.getElementsByTagName('Style')[0];
+      if (inlineStyle) {
+        this.parseStyleElement(inlineStyle, styleInfo);
+      }
+
+    } catch (error) {
+      console.warn('Error extracting style:', error);
+    }
+
+    return styleInfo;
+  }
+
+  /**
+   * Parse style element and extract colors
+   * @param {Element} styleElement - Style element
+   * @param {Object} styleInfo - Style info object to populate
+   */
+  static parseStyleElement(styleElement, styleInfo) {
+    // Parse PolyStyle for fill
+    const polyStyle = styleElement.getElementsByTagName('PolyStyle')[0];
+    if (polyStyle) {
+      const color = this.getElementText(polyStyle, 'color');
+      if (color) {
+        styleInfo.fillColor = this.kmlColorToHex(color);
+        styleInfo.fillOpacity = this.kmlColorToOpacity(color);
+      }
+    }
+
+    // Parse LineStyle for stroke
+    const lineStyle = styleElement.getElementsByTagName('LineStyle')[0];
+    if (lineStyle) {
+      const color = this.getElementText(lineStyle, 'color');
+      if (color) {
+        styleInfo.strokeColor = this.kmlColorToHex(color);
+        styleInfo.strokeOpacity = this.kmlColorToOpacity(color);
+      }
+      const width = this.getElementText(lineStyle, 'width');
+      if (width) {
+        styleInfo.strokeWidth = parseFloat(width);
+      }
+    }
+
+    // Parse IconStyle for points
+    const iconStyle = styleElement.getElementsByTagName('IconStyle')[0];
+    if (iconStyle) {
+      const color = this.getElementText(iconStyle, 'color');
+      if (color) {
+        styleInfo.fillColor = this.kmlColorToHex(color);
+        styleInfo.fillOpacity = this.kmlColorToOpacity(color);
+      }
+    }
+  }
+
+  /**
+   * Convert KML color (aabbggrr) to hex color (#rrggbb)
+   * @param {string} kmlColor - KML color string
+   * @returns {string} Hex color
+   */
+  static kmlColorToHex(kmlColor) {
+    if (!kmlColor || kmlColor.length < 6) return '#3388ff';
+    
+    // KML format: aabbggrr (alpha, blue, green, red)
+    const color = kmlColor.padStart(8, 'f');
+    const r = color.substring(6, 8);
+    const g = color.substring(4, 6);
+    const b = color.substring(2, 4);
+    
+    return `#${r}${g}${b}`;
+  }
+
+  /**
+   * Extract opacity from KML color
+   * @param {string} kmlColor - KML color string
+   * @returns {number} Opacity (0-1)
+   */
+  static kmlColorToOpacity(kmlColor) {
+    if (!kmlColor || kmlColor.length < 2) return 1.0;
+    
+    const alpha = kmlColor.substring(0, 2);
+    return parseInt(alpha, 16) / 255;
   }
 
   /**

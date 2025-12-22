@@ -451,13 +451,24 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                         })
                     }).addTo(mapInstance.current);
 
-                    // Add popup
+                    // Add popup with detailed info
                     const popupContent = `
-                        <div style="padding: 8px; max-width: 200px;">
-                            <h3 style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">Koordinat ${index + 1}</h3>
-                            <p style="margin: 2px 0; font-size: 12px;">Lat: ${coord.lat.toFixed(6)}</p>
-                            <p style="margin: 2px 0; font-size: 12px;">Lng: ${coord.lng.toFixed(6)}</p>
-                            <p style="margin: 2px 0; font-size: 12px;">Alt: ${coord.alt || 0}m</p>
+                        <div style="padding: 10px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
+                            <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #DC2626; border-bottom: 2px solid #DC2626; padding-bottom: 4px;">
+                                📍 Titik Koordinat ${index + 1}
+                            </h3>
+                            ${coord.name ? `<p style="margin: 6px 0; font-size: 13px; font-weight: 500; color: #333;">${coord.name}</p>` : ''}
+                            ${coord.description ? `<p style="margin: 4px 0; font-size: 11px; color: #666; font-style: italic;">${coord.description}</p>` : ''}
+                            <div style="margin: 8px 0; padding: 6px; background: #F3F4F6; border-radius: 4px;">
+                                <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Latitude:</strong> ${coord.lat.toFixed(6)}</p>
+                                <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Longitude:</strong> ${coord.lng.toFixed(6)}</p>
+                                ${coord.alt ? `<p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Altitude:</strong> ${coord.alt}m</p>` : ''}
+                            </div>
+                            <a href="https://www.google.com/maps?q=${coord.lat},${coord.lng}" 
+                               target="_blank" 
+                               style="display: inline-block; margin-top: 6px; padding: 4px 8px; background: #DC2626; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                                🗺️ Buka di Google Maps
+                            </a>
                         </div>
                     `;
 
@@ -479,24 +490,44 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                         // Convert coordinates to Leaflet format
                         const coordinates = polygon.coordinates.map(coord => [coord.lat, coord.lng]);
                         
+                        // Use style from KMZ if available, otherwise use defaults
+                        const style = polygon.style || {};
+                        const fillColor = style.fillColor || '#8B5CF6';
+                        const strokeColor = style.strokeColor || '#7C3AED';
+                        const fillOpacity = style.fillOpacity !== undefined ? style.fillOpacity : 0.1;
+                        const strokeOpacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.8;
+                        const weight = style.strokeWidth || 2;
+                        
                         const leafletPolygon = L.polygon(coordinates, {
-                            color: '#8B5CF6', // Purple color for task area
-                            weight: 2,
-                            opacity: 0.8,
-                            fillColor: '#8B5CF6',
-                            fillOpacity: 0.1
+                            color: strokeColor,
+                            fillColor: fillColor,
+                            weight: weight,
+                            opacity: strokeOpacity,
+                            fillOpacity: fillOpacity
                         }).addTo(mapInstance.current);
 
                         // Add popup
+                        const centerLat = coordinates.reduce((sum, c) => sum + c[0], 0) / coordinates.length;
+                        const centerLng = coordinates.reduce((sum, c) => sum + c[1], 0) / coordinates.length;
+                        
                         const popupContent = `
-                            <div style="padding: 8px; max-width: 200px;">
-                                <h3 style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">Area Tugas ${index + 1}</h3>
-                                <p style="margin: 0; font-size: 12px; color: #666;">
-                                    ${polygon.name || `Polygon ${index + 1}`}
-                                </p>
-                                <p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">
-                                    Koordinat: ${coordinates.length} titik
-                                </p>
+                            <div style="padding: 10px; max-width: 260px; font-family: system-ui, -apple-system, sans-serif;">
+                                <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #059669; border-bottom: 2px solid #059669; padding-bottom: 4px;">
+                                    🗺️ ${polygon.name || `Area Tugas ${index + 1}`}
+                                </h3>
+                                ${polygon.description ? `<p style="margin: 6px 0; font-size: 12px; color: #666; font-style: italic;">${polygon.description}</p>` : ''}
+                                <div style="margin: 8px 0; padding: 6px; background: #F3F4F6; border-radius: 4px;">
+                                    <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Titik Koordinat:</strong> ${coordinates.length}</p>
+                                    <p style="margin: 2px 0; font-size: 12px; color: #374151;">
+                                        <strong>Warna:</strong> 
+                                        <span style="display: inline-block; width: 14px; height: 14px; background: ${fillColor}; border: 2px solid ${strokeColor}; vertical-align: middle; margin-left: 4px; border-radius: 2px;"></span>
+                                    </p>
+                                </div>
+                                <a href="https://www.google.com/maps?q=${centerLat},${centerLng}" 
+                                   target="_blank" 
+                                   style="display: inline-block; margin-top: 6px; padding: 4px 8px; background: #059669; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                                    🗺️ Buka di Google Maps
+                                </a>
                             </div>
                         `;
 
@@ -519,22 +550,41 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                         // Convert coordinates to Leaflet format
                         const coordinates = line.coordinates.map(coord => [coord.lat, coord.lng]);
                         
+                        // Use style from KMZ if available
+                        const style = line.style || {};
+                        const color = style.strokeColor || '#8B5CF6';
+                        const weight = style.strokeWidth || 3;
+                        const opacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.8;
+                        
                         const polyline = L.polyline(coordinates, {
-                            color: '#8B5CF6', // Purple color for task lines
-                            weight: 3,
-                            opacity: 0.8
+                            color: color,
+                            weight: weight,
+                            opacity: opacity
                         }).addTo(mapInstance.current);
 
                         // Add popup
+                        const midIndex = Math.floor(coordinates.length / 2);
+                        const midLat = coordinates[midIndex][0];
+                        const midLng = coordinates[midIndex][1];
+                        
                         const popupContent = `
-                            <div style="padding: 8px; max-width: 200px;">
-                                <h3 style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">Garis Tugas ${index + 1}</h3>
-                                <p style="margin: 0; font-size: 12px; color: #666;">
-                                    ${line.name || `Line ${index + 1}`}
-                                </p>
-                                <p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">
-                                    Koordinat: ${coordinates.length} titik
-                                </p>
+                            <div style="padding: 10px; max-width: 260px; font-family: system-ui, -apple-system, sans-serif;">
+                                <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #7C3AED; border-bottom: 2px solid #7C3AED; padding-bottom: 4px;">
+                                    📏 ${line.name || `Garis Tugas ${index + 1}`}
+                                </h3>
+                                ${line.description ? `<p style="margin: 6px 0; font-size: 12px; color: #666; font-style: italic;">${line.description}</p>` : ''}
+                                <div style="margin: 8px 0; padding: 6px; background: #F3F4F6; border-radius: 4px;">
+                                    <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Titik Koordinat:</strong> ${coordinates.length}</p>
+                                    <p style="margin: 2px 0; font-size: 12px; color: #374151;">
+                                        <strong>Warna:</strong> 
+                                        <span style="display: inline-block; width: 20px; height: 3px; background: ${color}; vertical-align: middle; margin-left: 4px; border-radius: 1px;"></span>
+                                    </p>
+                                </div>
+                                <a href="https://www.google.com/maps?q=${midLat},${midLng}" 
+                                   target="_blank" 
+                                   style="display: inline-block; margin-top: 6px; padding: 4px 8px; background: #7C3AED; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                                    🗺️ Buka di Google Maps
+                                </a>
                             </div>
                         `;
 
@@ -607,14 +657,20 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, taskPolygons, routePoi
                         }).addTo(mapInstance.current);
 
                         const popupContent = `
-                            <div style="padding: 8px; max-width: 200px;">
-                                <h3 style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">Titik Tugas</h3>
-                                <p style="margin: 0; font-size: 12px; color: #666;">
-                                    ${polygonData.name || `Titik ${index + 1}`}
-                                </p>
-                                <p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">
-                                    Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}
-                                </p>
+                            <div style="padding: 10px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
+                                <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #8B5CF6; border-bottom: 2px solid #8B5CF6; padding-bottom: 4px;">
+                                    📍 ${polygonData.name || `Titik Tugas ${index + 1}`}
+                                </h3>
+                                ${polygonData.description ? `<p style="margin: 6px 0; font-size: 12px; color: #666; font-style: italic;">${polygonData.description}</p>` : ''}
+                                <div style="margin: 8px 0; padding: 6px; background: #F3F4F6; border-radius: 4px;">
+                                    <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Latitude:</strong> ${lat.toFixed(6)}</p>
+                                    <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Longitude:</strong> ${lng.toFixed(6)}</p>
+                                </div>
+                                <a href="https://www.google.com/maps?q=${lat},${lng}" 
+                                   target="_blank" 
+                                   style="display: inline-block; margin-top: 6px; padding: 4px 8px; background: #8B5CF6; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                                    🗺️ Buka di Google Maps
+                                </a>
                             </div>
                         `;
 

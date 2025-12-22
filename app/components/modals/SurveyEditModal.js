@@ -34,16 +34,20 @@ function buildInitialState(sd = {}) {
     statusIdTitik:
       sd.idTitik && String(sd.idTitik).trim() !== '' ? 'Ada' : 'Tidak Ada',
     idTitik: sd.idTitik || '',
+    adaIdTitik: sd.adaIdTitik || (sd.idTitik ? 'Ada' : 'Tidak Ada'),
     dataLampu: sd.dataLampu || sd.dataDaya || '',
+    dataDaya: sd.dataDaya || sd.dataLampu || '',
     dataTiang: sd.dataTiang || '',
     dataRuas: sd.dataRuas || sd.ruas || '',
-    dataRuasDetail: sd.dataRuasDetail || '', // baru: detail saat Kolektor
+    dataRuasSub: sd.dataRuasSub || sd.dataRuasDetail || '',
+    dataRuasDetail: sd.dataRuasDetail || sd.dataRuasSub || '',
     median: sd.median || '',
     tinggiMedian: sd.tinggiMedian || '',
     lebarMedian: sd.lebarMedian || '',
     namaJalan: sd.namaJalan || '',
-    lebarJalan:
-      sd.lebarJalan ?? sd.lebarJalan1 ?? sd.lebarJalan2 ?? '',
+    lebarJalan: sd.lebarJalan || '',
+    lebarJalan1: sd.lebarJalan1 || '',
+    lebarJalan2: sd.lebarJalan2 || '',
     jarakAntarTiang: sd.jarakAntarTiang || '',
     lebarBahuBertiang: sd.lebarBahuBertiang || '',
     lebarTrotoarBertiang: sd.lebarTrotoarBertiang || '',
@@ -55,11 +59,13 @@ function buildInitialState(sd = {}) {
     lebarJalan1: sd.lebarJalan1 || '',
     lebarJalan2: sd.lebarJalan2 || '',
     kepemilikanTiang: sd.kepemilikanTiang || '',
+    jenisTiangPLN: sd.jenisTiangPLN || '',
     jenisTiang: sd.jenisTiang || '',
     trafo: sd.trafo || '',
     jenisTrafo: sd.jenisTrafo || '',
     tinggiBatasBawah: sd.tinggiBatasBawah || sd.tinggiBawahTrafo || '',
     lampu: sd.lampu || '',
+    jenisLampu: sd.jenisLampu || '',
     tinggiARM: sd.tinggiARM || '',
 
     // Admin
@@ -230,14 +236,15 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
     if (!isOpen) initForIdRef.current = null;
   }, [isOpen]);
 
-  // koordinat realtime → tidak menyentuh formData
+  // koordinat realtime → tidak menyentuh formData, dengan debounce
   useEffect(() => {
     if (!isOpen) return;
     if (coords?.lat && coords?.lng) {
       const v = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
+      // Hanya update jika berbeda untuk menghindari re-render
       setLiveCoord((prev) => (prev === v ? prev : v));
     }
-  }, [coords, isOpen]);
+  }, [coords?.lat, coords?.lng, isOpen]);
 
   // handler global stabil
   const onFieldChange = useCallback((e) => {
@@ -246,7 +253,7 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
     setHasChanges(true);
   }, []);
 
-  const copyToClipboard = async (text) => {
+  const copyToClipboard = useCallback(async (text) => {
     try {
       if (!text) return;
       await (navigator?.clipboard?.writeText
@@ -266,9 +273,9 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
       setToast({ show: true, message: 'Gagal menyalin', type: 'error' });
       setTimeout(() => setToast((t) => ({ ...t, show: false })), 1400);
     }
-  };
+  }, []);
 
-  const openInGoogleMaps = (coordStr) => {
+  const openInGoogleMaps = useCallback((coordStr) => {
     const [a, b] = String(coordStr || '').split(',').map((s) => s.trim());
     const lat = Number(a),
       lng = Number(b);
@@ -281,7 +288,7 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
       '_blank',
       'noopener,noreferrer'
     );
-  };
+  }, []);
 
   const isAPJPropose = useMemo(() => {
     const raw = String(surveyData?.collectionName || '').toLowerCase();
@@ -289,7 +296,13 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
     return norm.includes('apj') && norm.includes('propose');
   }, [surveyData]);
 
-  const handleSubmit = async (e) => {
+  const isSurveyExisting = useMemo(() => {
+    const raw = String(surveyData?.collectionName || '').toLowerCase();
+    const norm = raw.replace(/[^a-z0-9]+/g, ' ');
+    return norm.includes('survey') && norm.includes('existing');
+  }, [surveyData]);
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!hasChanges) {
       alert('Tidak ada perubahan yang dibuat');
@@ -319,9 +332,9 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [hasChanges, formData, liveCoord, surveyData, onSave, currentId, onClose]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (hasChanges && !isSubmitting) {
       if (confirm('Ada perubahan yang belum disimpan. Yakin ingin menutup?')) {
         setHasChanges(false);
@@ -330,11 +343,11 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
     } else {
       onClose();
     }
-  };
+  }, [hasChanges, isSubmitting, onClose]);
 
   /* ---------------- Bagian Form ---------------- */
 
-  const APJForm = (
+  const APJForm = useMemo(() => (
     <div className="bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-slate-200/70 shadow-lg">
       <h3 className="text-lg font-semibold text-slate-900 mb-4">
         Informasi APJ Propose
@@ -369,19 +382,33 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         )}
       </div>
 
-      {/* Data Lampu (select tetap) */}
-      <div className="mb-3">
-        <MiniLabel>Data Lampu</MiniLabel>
-        <Select
-          name="dataLampu"
-          value={formData.dataLampu}
+      {/* Nama Jalan */}
+      <div className="mb-4">
+        <MiniLabel>Nama Jalan</MiniLabel>
+        <Input
+          name="namaJalan"
+          value={formData.namaJalan}
           onChange={onFieldChange}
+          placeholder="Nama jalan"
+        />
+      </div>
+
+      {/* Data Daya Lampu */}
+      <div className="mb-3">
+        <MiniLabel>Daya Lampu</MiniLabel>
+        <Select
+          name="dataDaya"
+          value={formData.dataDaya || formData.dataLampu}
+          onChange={(e) => {
+            dispatch({ type: 'SET_FIELD', name: 'dataDaya', value: e.target.value });
+            dispatch({ type: 'SET_FIELD', name: 'dataLampu', value: e.target.value });
+          }}
           options={['120W', '90W', '60W', '40W']}
           placeholder="Pilih daya lampu"
         />
       </div>
 
-      {/* Data Tiang (select tetap) */}
+      {/* Data Tiang */}
       <div className="mb-3">
         <MiniLabel>Data Tiang</MiniLabel>
         <Select
@@ -393,7 +420,7 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         />
       </div>
 
-      {/* Data Ruas (Arteri/Kolektor + detail Kolektor) */}
+      {/* Data Ruas */}
       <div className="mb-4">
         <MiniLabel>Data Ruas</MiniLabel>
         <Select
@@ -402,6 +429,7 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
           onChange={(e) => {
             onFieldChange(e);
             if (e.target.value !== 'Kolektor') {
+              dispatch({ type: 'SET_FIELD', name: 'dataRuasSub', value: '' });
               dispatch({ type: 'SET_FIELD', name: 'dataRuasDetail', value: '' });
             }
           }}
@@ -410,65 +438,62 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         />
         {formData.dataRuas === 'Kolektor' && (
           <div className="mt-3">
-            <MiniLabel>Detail Kolektor</MiniLabel>
+            <MiniLabel>Sub Ruas</MiniLabel>
             <Select
-              name="dataRuasDetail"
-              value={formData.dataRuasDetail}
-              onChange={onFieldChange}
+              name="dataRuasSub"
+              value={formData.dataRuasSub || formData.dataRuasDetail}
+              onChange={(e) => {
+                dispatch({ type: 'SET_FIELD', name: 'dataRuasSub', value: e.target.value });
+                dispatch({ type: 'SET_FIELD', name: 'dataRuasDetail', value: e.target.value });
+              }}
               options={['Titik Nol', 'Kolektor A', 'Kolektor B', 'Wisata']}
-              placeholder="Pilih detail"
+              placeholder="Pilih sub ruas"
             />
           </div>
         )}
       </div>
 
-      {/* Median + Nama Jalan */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <MiniLabel>Median</MiniLabel>
-          <Select
-            name="median"
-            value={formData.median}
-            onChange={onFieldChange}
-            options={['Ada', 'Tidak Ada']}
-            placeholder="Pilih median"
-          />
-        </div>
-        <div>
-          <MiniLabel>Nama Jalan</MiniLabel>
-          <Input
-            name="namaJalan"
-            value={formData.namaJalan}
-            onChange={onFieldChange}
-            placeholder="Nama jalan"
-          />
-        </div>
+      {/* Median */}
+      <div className="mb-4">
+        <MiniLabel>Median</MiniLabel>
+        <Select
+          name="median"
+          value={formData.median}
+          onChange={(e) => {
+            onFieldChange(e);
+            if (e.target.value !== 'Ada') {
+              dispatch({ type: 'SET_FIELD', name: 'tinggiMedian', value: '' });
+              dispatch({ type: 'SET_FIELD', name: 'lebarMedian', value: '' });
+            }
+          }}
+          options={['Ada', 'Tidak Ada']}
+          placeholder="Pilih status median"
+        />
+        {formData.median === 'Ada' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+            <div>
+              <MiniLabel right="(m)">Tinggi Median</MiniLabel>
+              <Input
+                name="tinggiMedian"
+                type="number"
+                value={formData.tinggiMedian}
+                onChange={onFieldChange}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <MiniLabel right="(m)">Lebar Median</MiniLabel>
+              <Input
+                name="lebarMedian"
+                type="number"
+                value={formData.lebarMedian}
+                onChange={onFieldChange}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        )}
       </div>
-
-      {formData.median === 'Ada' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <MiniLabel right="(m)">Tinggi Median</MiniLabel>
-            <Input
-              name="tinggiMedian"
-              type="number"
-              value={formData.tinggiMedian}
-              onChange={onFieldChange}
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <MiniLabel right="(m)">Lebar Median</MiniLabel>
-            <Input
-              name="lebarMedian"
-              type="number"
-              value={formData.lebarMedian}
-              onChange={onFieldChange}
-              placeholder="0"
-            />
-          </div>
-        </div>
-      )}
 
       {/* Titik koordinat read-only */}
       <div className="mb-4">
@@ -500,18 +525,32 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         />
       </div>
 
-      {/* Ukuran jalan/tiang */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {/* Lebar Jalan */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <MiniLabel right="(m)">Lebar Jalan</MiniLabel>
+          <MiniLabel right="(m)">Lebar Jalan 1</MiniLabel>
           <Input
-            name="lebarJalan"
+            name="lebarJalan1"
             type="number"
-            value={formData.lebarJalan}
+            value={formData.lebarJalan1}
             onChange={onFieldChange}
             placeholder="0"
           />
         </div>
+        <div>
+          <MiniLabel right="(m)">Lebar Jalan 2</MiniLabel>
+          <Input
+            name="lebarJalan2"
+            type="number"
+            value={formData.lebarJalan2}
+            onChange={onFieldChange}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      {/* Ukuran jalan/tiang */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
           <MiniLabel right="(m)">Jarak Antar Tiang</MiniLabel>
           <Input
@@ -532,9 +571,6 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
             placeholder="0"
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <MiniLabel right="(m)">Lebar Trotoar Bertiang</MiniLabel>
           <Input
@@ -545,15 +581,16 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
             placeholder="0"
           />
         </div>
-        <div>
-          <MiniLabel>Lainnya Bertiang</MiniLabel>
-          <Input
-            name="lainnyaBertiang"
-            value={formData.lainnyaBertiang}
-            onChange={onFieldChange}
-            placeholder="Keterangan lainnya"
-          />
-        </div>
+      </div>
+
+      <div className="mb-4">
+        <MiniLabel>Lainnya Bertiang</MiniLabel>
+        <Input
+          name="lainnyaBertiang"
+          value={formData.lainnyaBertiang}
+          onChange={onFieldChange}
+          placeholder="Keterangan lainnya"
+        />
       </div>
 
       <div className="mb-4">
@@ -593,9 +630,9 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         </div>
       </div>
     </div>
-  );
+  ), [formData, onFieldChange, dispatch]);
 
-  const ExistingForm = (
+  const ExistingForm = useMemo(() => (
     <div className="bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-slate-200/70 shadow-lg">
       <h3 className="text-lg font-semibold text-slate-900 mb-4">
         Informasi Existing
@@ -650,9 +687,28 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         <Select
           name="kepemilikanTiang"
           value={formData.kepemilikanTiang}
-          onChange={onFieldChange}
+          onChange={(e) => {
+            onFieldChange(e);
+            if (e.target.value !== 'PLN') {
+              dispatch({ type: 'SET_FIELD', name: 'jenisTiangPLN', value: '' });
+            }
+          }}
           options={['PLN', 'Pemko', 'Swadaya']}
         />
+        {formData.kepemilikanTiang === 'PLN' && (
+          <div className="mt-3">
+            <MiniLabel>Jenis Tiang PLN</MiniLabel>
+            <Select
+              name="jenisTiangPLN"
+              value={formData.jenisTiangPLN || ''}
+              onChange={(e) => {
+                dispatch({ type: 'SET_FIELD', name: 'jenisTiangPLN', value: e.target.value });
+              }}
+              options={['Tiang TR', 'Tiang TM']}
+              placeholder="Pilih jenis tiang PLN"
+            />
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -691,7 +747,7 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
                 name="jenisTrafo"
                 value={formData.jenisTrafo}
                 onChange={onFieldChange}
-                options={['Single', 'Double']}
+                options={['Single', 'Double', 'Tidak Ada']}
                 placeholder="Pilih jenis trafo"
               />
             </div>
@@ -715,8 +771,22 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
           name="lampu"
           value={formData.lampu}
           onChange={onFieldChange}
-          options={['Ada', 'Tidak Ada']}
+          options={['Ada - 1', 'Ada - 2', 'Ada - 3', 'Ada - 4', 'Tidak Ada']}
         />
+        {formData.lampu && formData.lampu.startsWith('Ada') && (
+          <div className="mt-3">
+            <MiniLabel>Jenis Lampu</MiniLabel>
+            <Select
+              name="jenisLampu"
+              value={formData.jenisLampu || ''}
+              onChange={(e) => {
+                dispatch({ type: 'SET_FIELD', name: 'jenisLampu', value: e.target.value });
+              }}
+              options={['Konvensional', 'LED', 'Swadaya', 'Panel Surya']}
+              placeholder="Pilih jenis lampu"
+            />
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -828,9 +898,9 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         </div>
       </div>
     </div>
-  );
+  ), [formData, onFieldChange, dispatch]);
 
-  const DokumentasiFoto = (
+  const DokumentasiFoto = useMemo(() => (
     <div className="bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-slate-200/70 shadow-lg">
       <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
         <Camera size={20} />
@@ -939,7 +1009,7 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
         </div>
       </div>
     </div>
-  );
+  ), [formData]);
 
   if (!isOpen || !surveyData) return null;
 
@@ -1038,11 +1108,12 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
               </div>
 
               {hasChanges && (
-                <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg" role="alert">
                   <div className="flex items-start gap-3">
                     <AlertTriangle
                       size={20}
                       className="text-yellow-700 mt-0.5"
+                      aria-hidden="true"
                     />
                     <div>
                       <h4 className="font-semibold text-yellow-800">
@@ -1077,16 +1148,18 @@ export default function SurveyEditModal({ isOpen, onClose, surveyData, onSave })
           </div>
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={handleClose}
               disabled={isSubmitting}
-              className="bg-slate-700 text-white px-5 py-2 rounded-xl disabled:opacity-50"
+              className="bg-slate-700 text-white px-5 py-2 rounded-xl disabled:opacity-50 hover:bg-slate-800 transition-colors"
             >
               Batal
             </button>
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !hasChanges}
-              className="bg-emerald-600 text-white px-5 py-2 rounded-xl disabled:opacity-50"
+              className="bg-emerald-600 text-white px-5 py-2 rounded-xl disabled:opacity-50 hover:bg-emerald-700 transition-colors disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Menyimpan…' : 'Simpan Perubahan'}
             </button>

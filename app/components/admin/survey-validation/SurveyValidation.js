@@ -26,6 +26,8 @@ const SurveyValidation = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [statusFilter, setStatusFilter] = useState('all'); // all, pending, validated, rejected
+  const [murniFilter, setMurniFilter] = useState('all'); // all, murni, tidak_murni
+  const [surveyTypeFilter, setSurveyTypeFilter] = useState('existing'); // existing, propose
   const [sortBy, setSortBy] = useState('newest'); // newest, oldest, name
   
   // States untuk Valid Survey Data
@@ -614,19 +616,36 @@ const SurveyValidation = ({
 
   // Filter surveys based on search term and apply filters
   const getFilteredSurveys = () => {
-    let filtered = surveys.filter(survey => {
-      if (!searchTerm) return true;
-      
+    let filtered = surveys;
+
+    // Apply survey type filter FIRST
+    if (surveyTypeFilter === 'existing') {
+      filtered = filtered.filter(survey => 
+        survey.collectionName === 'survey_existing' || 
+        survey.surveyType === 'Survey Existing' ||
+        survey.originalCollectionName === 'Survey_Existing_Report'
+      );
+    } else if (surveyTypeFilter === 'propose') {
+      filtered = filtered.filter(survey => 
+        survey.collectionName === 'survey_apj_propose' || 
+        survey.collectionName === 'apj_propose_tiang' ||
+        survey.surveyType === 'Survey APJ Propose' ||
+        survey.originalCollectionName === 'APJ_Propose_Tiang'
+      );
+    }
+
+    // Apply search filter
+    if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      return (
+      filtered = filtered.filter(survey => (
         survey.namaJalan?.toLowerCase().includes(searchLower) ||
         survey.idTitik?.toLowerCase().includes(searchLower) ||
         survey.surveyorName?.toLowerCase().includes(searchLower) ||
         survey.surveyType?.toLowerCase().includes(searchLower) ||
         survey.kepemilikanTiang?.toLowerCase().includes(searchLower) ||
         survey.jenisTiang?.toLowerCase().includes(searchLower)
-      );
-    });
+      ));
+    }
 
     // Apply status filter
     if (statusFilter !== 'all') {
@@ -634,6 +653,15 @@ const SurveyValidation = ({
         if (statusFilter === 'pending') return survey.status === 'pending';
         if (statusFilter === 'validated') return survey.status === 'validated';
         if (statusFilter === 'rejected') return survey.status === 'rejected';
+        return true;
+      });
+    }
+
+    // Apply murni filter (only for Survey Existing)
+    if (murniFilter !== 'all' && surveyTypeFilter === 'existing') {
+      filtered = filtered.filter(survey => {
+        if (murniFilter === 'murni') return survey.murni === 'Murni';
+        if (murniFilter === 'tidak_murni') return survey.murni === 'Tidak Murni';
         return true;
       });
     }
@@ -691,7 +719,7 @@ const SurveyValidation = ({
         <div className="min-h-screen bg-white rounded-xl shadow-lg mx-6 my-4">
           <div className="px-8 py-6">
             {/* Header Section dengan styling yang lebih baik */}
-            <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-100">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Validasi Survey</h1>
                 <p className="text-gray-600 text-lg">Kelola dan pantau aktivitas survey</p>
@@ -711,6 +739,44 @@ const SurveyValidation = ({
                   <div className="text-3xl font-bold text-green-600">{validatedSurveys}</div>
                   <div className="text-sm text-green-700 font-medium">Tervalidasi</div>
                 </div>
+              </div>
+            </div>
+
+            {/* Tabs untuk Survey Type dengan styling modern */}
+            <div className="mb-6">
+              <div className="flex gap-4 border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    setSurveyTypeFilter('existing');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-6 py-3 font-semibold text-sm transition-all duration-200 border-b-2 ${
+                    surveyTypeFilter === 'existing'
+                      ? 'border-blue-500 text-blue-600 bg-blue-50'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  } rounded-t-lg`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-lg">🗂️</span>
+                    Survey Existing
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSurveyTypeFilter('propose');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-6 py-3 font-semibold text-sm transition-all duration-200 border-b-2 ${
+                    surveyTypeFilter === 'propose'
+                      ? 'border-green-500 text-green-600 bg-green-50'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  } rounded-t-lg`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-lg">💡</span>
+                    Survey APJ Propose
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -735,6 +801,19 @@ const SurveyValidation = ({
                     <option value="validated">Tervalidasi</option>
                     <option value="rejected">Ditolak</option>
                   </select>
+
+                  {/* Murni Filter - hanya tampil untuk Survey Existing */}
+                  {surveyTypeFilter === 'existing' && (
+                    <select
+                      value={murniFilter}
+                      onChange={(e) => setMurniFilter(e.target.value)}
+                      className="px-4 py-3 text-sm font-medium text-gray-900 bg-white border-2 border-gray-300 rounded-xl shadow-sm hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all duration-200"
+                    >
+                      <option value="all">Semua Tipe</option>
+                      <option value="murni">Murni</option>
+                      <option value="tidak_murni">Tidak Murni</option>
+                    </select>
+                  )}
 
                   {/* Sort Filter */}
                   <select
@@ -799,179 +878,183 @@ const SurveyValidation = ({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {Object.entries(surveyCategories).map(([categoryName, categoryConfig]) => {
-                    const surveysInCategory = groupedSurveys[categoryName] || [];
-                    
-                    return (
-                      <div key={categoryName} className={`border rounded-xl ${categoryConfig.color}`}>
-                        <div className={`${categoryConfig.headerColor} px-6 py-4 border-b border-gray-200 rounded-t-xl`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-2xl">{categoryConfig.icon}</span>
-                              <div>
-                                <h3 className="font-bold text-gray-900 text-lg">{categoryName}</h3>
-                                <p className="text-sm text-gray-600">{categoryConfig.description}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="bg-white text-gray-800 text-sm font-semibold px-3 py-1 rounded-full border">
-                                {surveysInCategory.length} Survey
-                              </span>
-                              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
-                                <Database size={12} />
-                                {categoryConfig.collection}
-                              </span>
-                            </div>
+                <div className="space-y-3">
+                  {/* Header untuk kategori yang sedang aktif */}
+                  <div className={`border rounded-xl ${surveyTypeFilter === 'existing' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
+                    <div className={`px-6 py-4 border-b border-gray-200 rounded-t-xl ${surveyTypeFilter === 'existing' ? 'bg-blue-100' : 'bg-green-100'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{surveyTypeFilter === 'existing' ? '🗂️' : '💡'}</span>
+                          <div>
+                            <h3 className="font-bold text-gray-900 text-lg">
+                              {surveyTypeFilter === 'existing' ? 'Survey Existing' : 'Survey APJ Propose'}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {surveyTypeFilter === 'existing' 
+                                ? 'Survey Existing dan infrastruktur pendukung' 
+                                : 'Survey usulan tiang APJ baru'}
+                            </p>
                           </div>
                         </div>
-                        
-                        <div className="divide-y divide-gray-200">
-                          {surveysInCategory.length === 0 ? (
-                            <div className="p-8 text-center">
-                              <div className="text-4xl mb-3 opacity-50">{categoryConfig.icon}</div>
-                              <p className="text-gray-500">Belum ada data {categoryName.toLowerCase()}</p>
-                            </div>
-                          ) : (
-                            surveysInCategory.map((survey) => (
-                              <div 
-                                key={survey.id} 
-                                ref={el => surveyRefs.current[survey.id] = el}
-                                className="p-4 hover:bg-white/50 transition-colors duration-200"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-3 mb-2">
-                                      <div className="flex items-start gap-3">
-                                        {getPrimaryPhotoUrl(survey) ? (
-                                          <img
-                                            src={getPrimaryPhotoUrl(survey)}
-                                            alt={survey.namaJalan || survey.idTitik || 'Foto survey'}
-                                            className="w-16 h-12 rounded-md object-cover border"
-                                            loading="lazy"
-                                          />
-                                        ) : (
-                                          <div className="w-16 h-12 rounded-md bg-gray-100 border flex items-center justify-center text-xs text-gray-400">
-                                            No Foto
-                                          </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="bg-white text-gray-800 text-sm font-semibold px-3 py-1 rounded-full border">
+                            {paginatedSurveys.length} Survey (Hal {currentPage})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="divide-y divide-gray-200">
+                      {paginatedSurveys.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <div className="text-4xl mb-3 opacity-50">
+                            {surveyTypeFilter === 'existing' ? '🗂️' : '💡'}
+                          </div>
+                          <p className="text-gray-500">
+                            Belum ada data {surveyTypeFilter === 'existing' ? 'Survey Existing' : 'Survey APJ Propose'}
+                          </p>
+                        </div>
+                      ) : (
+                        paginatedSurveys.map((survey) => (
+                          <div 
+                            key={survey.id} 
+                            ref={el => surveyRefs.current[survey.id] = el}
+                            className="p-4 hover:bg-white/50 transition-colors duration-200"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <div className="flex items-start gap-3">
+                                    {getPrimaryPhotoUrl(survey) ? (
+                                      <img
+                                        src={getPrimaryPhotoUrl(survey)}
+                                        alt={survey.namaJalan || survey.idTitik || 'Foto survey'}
+                                        className="w-16 h-12 rounded-md object-cover border"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div className="w-16 h-12 rounded-md bg-gray-100 border flex items-center justify-center text-xs text-gray-400">
+                                        No Foto
+                                      </div>
+                                    )}
+                                    <div>
+                                      <h4 className="font-semibold text-gray-900">
+                                        {survey.namaJalan || survey.idTitik || 'Judul Tidak Tersedia'}
+                                      </h4>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        {getStatusBadge(survey.status)}
+                                        {survey.murni && surveyTypeFilter === 'existing' && (
+                                          <span className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded-full">
+                                            {survey.murni}
+                                          </span>
                                         )}
-                                        <div>
-                                          <h4 className="font-semibold text-gray-900">
-                                            {survey.namaJalan || survey.idTitik || 'Judul Tidak Tersedia'}
-                                          </h4>
-                                          <div className="flex items-center gap-2 mt-1">
-                                            {getStatusBadge(survey.status)}
-                                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                                              {survey.collectionName}
-                                            </span>
                                         {/* Tanda sudah diedit */}
                                         {survey.modifiedBy && (
                                           <span className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded-full flex items-center gap-1">
                                             <Edit size={12} /> Diedit oleh {survey.modifiedBy}
                                           </span>
                                         )}
-                                          </div>
-                                        </div>
                                       </div>
                                     </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                                      <div className="flex items-center space-x-2">
-                                        <User size={14} className="text-gray-400" />
-                                        <span>{survey.surveyorName || 'Tidak Diketahui'}</span>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <Calendar size={14} className="text-gray-400" />
-                                        <span>
-                                          {survey.createdAt ? (
-                                            <>
-                                              {new Date(survey.createdAt).toLocaleDateString('id-ID')}
-                                              <span className="text-xs text-gray-500 ml-1">
-                                                {new Date(survey.createdAt).toLocaleTimeString('id-ID', { 
-                                                  hour: '2-digit', 
-                                                  minute: '2-digit',
-                                                  hour12: false 
-                                                })}
-                                              </span>
-                                            </>
-                                          ) : 'Tidak Diketahui'}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <MapPin size={14} className="text-gray-400" />
-                                        <span className="truncate">{survey.titikKordinat || 'Lokasi tidak diketahui'}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Survey specific details */}
-                                    {categoryName === 'Survey Existing' && (
-                                      <div className="mt-2 text-xs text-gray-500 bg-white/70 rounded px-2 py-1 inline-block">
-                                        Kepemilikan: {survey.kepemilikanTiang || 'N/A'} • Jenis: {survey.jenisTiang || 'N/A'} • Tinggi ARM: {survey.tinggiARM ? `${survey.tinggiARM}m` : 'N/A'}
-                                      </div>
-                                    )}
-                                    {categoryName === 'Survey APJ Propose' && (
-                                      <div className="mt-2 text-xs text-gray-500 bg-white/70 rounded px-2 py-1 inline-block">
-                                        Daya: {survey.daya || survey.dataDaya || 'N/A'} • Data Tiang: {survey.dataTiang || survey.tiang || 'N/A'} • Jarak: {survey.jarakAntarTiang || survey.jarak ? `${survey.jarakAntarTiang || survey.jarak}m` : 'N/A'}
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex items-center space-x-2 ml-4">
-                                    <button
-                                      onClick={() => handleSurveyDetail(survey)}
-                                      className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
-                                      title="Lihat Detail"
-                                    >
-                                      <Eye size={16} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleSurveyEdit(survey)}
-                                      className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200"
-                                      title="Edit Survey"
-                                    >
-                                      <Edit size={16} />
-                                    </button>
-                                    <button
-                                      onClick={() => openDeleteConfirm(survey)}
-                                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-                                      title="Hapus Survey"
-                                    >
-                                      <Trash2 size={16} />
-                                    </button>
-                                    {survey.status === 'pending' && (
-                                      <div className="flex items-center space-x-2">
-                                        <button
-                                          onClick={() => openConfirm(survey, 'approve')}
-                                          className="px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-1"
-                                          title="Validasi Survey"
-                                        >
-                                          <CheckCircle size={14} />
-                                          <span>Validasi</span>
-                                        </button>
-                                        <button
-                                          onClick={() => openConfirm(survey, 'reject')}
-                                          className="px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center space-x-1"
-                                          title="Tolak Survey"
-                                        >
-                                          <X size={14} />
-                                          <span>Tolak</span>
-                                        </button>
-                                      </div>
-                                    )}
                                   </div>
                                 </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                                  <div className="flex items-center space-x-2">
+                                    <User size={14} className="text-gray-400" />
+                                    <span>{survey.surveyorName || 'Tidak Diketahui'}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Calendar size={14} className="text-gray-400" />
+                                    <span>
+                                      {survey.createdAt ? (
+                                        <>
+                                          {new Date(survey.createdAt).toLocaleDateString('id-ID')}
+                                          <span className="text-xs text-gray-500 ml-1">
+                                            {new Date(survey.createdAt).toLocaleTimeString('id-ID', { 
+                                              hour: '2-digit', 
+                                              minute: '2-digit',
+                                              hour12: false 
+                                            })}
+                                          </span>
+                                        </>
+                                      ) : 'Tidak Diketahui'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <MapPin size={14} className="text-gray-400" />
+                                    <span className="truncate">{survey.titikKordinat || 'Lokasi tidak diketahui'}</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Survey specific details */}
+                                {surveyTypeFilter === 'existing' && (
+                                  <div className="mt-2 text-xs text-gray-500 bg-white/70 rounded px-2 py-1 inline-block">
+                                    Kepemilikan: {survey.kepemilikanTiang || 'N/A'} • Jenis: {survey.jenisTiang || 'N/A'} • Tinggi ARM: {survey.tinggiARM ? `${survey.tinggiARM}m` : 'N/A'}
+                                  </div>
+                                )}
+                                {surveyTypeFilter === 'propose' && (
+                                  <div className="mt-2 text-xs text-gray-500 bg-white/70 rounded px-2 py-1 inline-block">
+                                    Daya: {survey.daya || survey.dataDaya || 'N/A'} • Data Tiang: {survey.dataTiang || survey.tiang || 'N/A'} • Jarak: {survey.jarakAntarTiang || survey.jarak ? `${survey.jarakAntarTiang || survey.jarak}m` : 'N/A'}
+                                  </div>
+                                )}
                               </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                              
+                              <div className="flex items-center space-x-2 ml-4">
+                                <button
+                                  onClick={() => handleSurveyDetail(survey)}
+                                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
+                                  title="Lihat Detail"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleSurveyEdit(survey)}
+                                  className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200"
+                                  title="Edit Survey"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => openDeleteConfirm(survey)}
+                                  className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
+                                  title="Hapus Survey"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                                {survey.status === 'pending' && (
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() => openConfirm(survey, 'approve')}
+                                      className="px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-1"
+                                      title="Validasi Survey"
+                                    >
+                                      <CheckCircle size={14} />
+                                      <span>Validasi</span>
+                                    </button>
+                                    <button
+                                      onClick={() => openConfirm(survey, 'reject')}
+                                      className="px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center space-x-1"
+                                      title="Tolak Survey"
+                                    >
+                                      <X size={14} />
+                                      <span>Tolak</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
+            </div>
 
-              {/* Pagination Controls dengan styling yang lebih baik */}
-              {totalPages > 1 && (
+            {/* Pagination Controls dengan styling yang lebih baik */}
+            {totalPages > 1 && (
                 <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1051,7 +1134,6 @@ const SurveyValidation = ({
             </div>
           </div>
         </div>
-      </div>
 
       {/* Modal Components */}
       {showSurveyDetail && selectedSurvey && (

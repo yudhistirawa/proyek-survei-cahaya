@@ -891,18 +891,80 @@ const MapsValidasiPage = ({ focusTarget }) => {
           console.warn('Peta Bersama: gagal fokus ke target:', focusErr);
         }
 
+        // Auto fokus ke area dengan titik terbanyak
         if (!ALWAYS_FREE_ZOOM && !hasAutoFitRef.current && !hasUserMovedRef.current && newMarkers.length > 0 && mapInstanceRef.current.fitBounds) {
           try {
-            let bounds;
-            if (clusterGroupRef.current && clusterGroupRef.current.getBounds) {
-              bounds = clusterGroupRef.current.getBounds();
-            } else {
-              const group = L.featureGroup(newMarkers);
-              bounds = group.getBounds();
-            }
-            if (bounds.isValid()) {
-              mapInstanceRef.current.fitBounds(bounds.pad(0.1));
+            // Hitung cluster area dengan titik terbanyak
+            const findDensestArea = (data) => {
+              if (!data || data.length === 0) return null;
+              
+              // Grid-based clustering: bagi peta jadi grid dan hitung titik per cell
+              const gridSize = 0.01; // ~1km per cell
+              const clusters = new Map();
+              
+              data.forEach(survey => {
+                const loc = extractLocation(survey);
+                if (!loc || !loc.lat || !loc.lng) return;
+                
+                // Assign ke grid cell
+                const gridLat = Math.floor(loc.lat / gridSize) * gridSize;
+                const gridLng = Math.floor(loc.lng / gridSize) * gridSize;
+                const key = `${gridLat},${gridLng}`;
+                
+                if (!clusters.has(key)) {
+                  clusters.set(key, {
+                    lat: gridLat + gridSize / 2,
+                    lng: gridLng + gridSize / 2,
+                    count: 0,
+                    points: []
+                  });
+                }
+                
+                const cluster = clusters.get(key);
+                cluster.count++;
+                cluster.points.push(loc);
+              });
+              
+              // Cari cluster dengan titik terbanyak
+              let maxCluster = null;
+              let maxCount = 0;
+              
+              clusters.forEach(cluster => {
+                if (cluster.count > maxCount) {
+                  maxCount = cluster.count;
+                  maxCluster = cluster;
+                }
+              });
+              
+              return maxCluster;
+            };
+            
+            const densestArea = findDensestArea(filteredSurveyData);
+            
+            if (densestArea && densestArea.count > 1) {
+              // Fokus ke area dengan titik terbanyak
+              console.log(`🎯 Auto fokus ke area dengan ${densestArea.count} titik`);
+              
+              // Hitung bounds untuk area tersebut
+              const bounds = L.latLngBounds(
+                densestArea.points.map(p => [p.lat, p.lng])
+              );
+              
+              mapInstanceRef.current.fitBounds(bounds.pad(0.2));
               hasAutoFitRef.current = true;
+            } else {
+              // Fallback: fit semua marker
+              let bounds;
+              if (clusterGroupRef.current && clusterGroupRef.current.getBounds) {
+                bounds = clusterGroupRef.current.getBounds();
+              } else {
+                const group = L.featureGroup(newMarkers);
+                bounds = group.getBounds();
+              }
+              if (bounds.isValid()) {
+                mapInstanceRef.current.fitBounds(bounds.pad(0.1));
+                hasAutoFitRef.current = true;
+              }
             }
           } catch (boundsError) {
             console.warn('Error fitting bounds:', boundsError);

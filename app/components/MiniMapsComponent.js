@@ -65,6 +65,7 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
     const [kmzLoading, setKmzLoading] = useState(false);
     const [kmzError, setKmzError] = useState(null);
     const watchIdRef = useRef(null);
+    const prevTaskIdRef = useRef(null);
 
     // Load KMZ data from URL
     const loadKmzData = async (kmzUrl) => {
@@ -247,9 +248,18 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
                     // Clear KMZ data when no active task
                     setKmzData(null);
                     setKmzError(null);
+                    // Clear survey points when no active task
+                    setSurveyPoints([]);
                     // Clear manual close flag when no active task
                     sessionStorage.removeItem('miniMapsManuallyClosed');
                     sessionStorage.removeItem('miniMapsAutoFocus');
+                    // Clear saved survey points from all tasks
+                    Object.keys(sessionStorage).forEach(key => {
+                        if (key.startsWith('miniMaps_surveyPoints_')) {
+                            sessionStorage.removeItem(key);
+                            console.log('🗑️ MiniMapsComponent: Cleared saved survey points:', key);
+                        }
+                    });
                 }
             } catch (error) {
                 console.error('Error checking active task:', error);
@@ -310,8 +320,29 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
                     console.log('📍 MiniMapsComponent: Location updated:', latitude, longitude);
                 },
                 (error) => {
-                    console.error('❌ MiniMapsComponent: Error watching location:', error);
-                    setError('Gagal melacak lokasi: ' + error.message);
+                    console.error('❌ MiniMapsComponent: Error watching location:', {
+                        code: error.code,
+                        message: error.message,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // Handle specific geolocation errors with user-friendly messages
+                    let errorMessage = 'Gagal melacak lokasi';
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Akses lokasi ditolak. Mohon aktifkan izin lokasi di browser.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Informasi lokasi tidak tersedia.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = 'Permintaan lokasi timeout. Mencoba lagi...';
+                            break;
+                        default:
+                            errorMessage = 'Gagal melacak lokasi: ' + error.message;
+                            break;
+                    }
+                    setError(errorMessage);
                 },
                 {
                     enableHighAccuracy: true,
@@ -334,6 +365,54 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint }) => {
             }
         };
     }, [isVisible]);
+
+    // Persist surveyPoints to sessionStorage whenever they change
+    useEffect(() => {
+        if (surveyPoints && surveyPoints.length > 0 && activeTaskIdFromSession) {
+            const storageKey = `miniMaps_surveyPoints_${activeTaskIdFromSession}`;
+            try {
+                sessionStorage.setItem(storageKey, JSON.stringify(surveyPoints));
+                console.log('💾 MiniMapsComponent: Saved', surveyPoints.length, 'survey points to sessionStorage');
+            } catch (error) {
+                console.error('❌ MiniMapsComponent: Error saving survey points:', error);
+            }
+        }
+    }, [surveyPoints, activeTaskIdFromSession]);
+
+    // Load surveyPoints from sessionStorage on mount
+    useEffect(() => {
+        if (activeTaskIdFromSession && surveyPoints.length === 0) {
+            const storageKey = `miniMaps_surveyPoints_${activeTaskIdFromSession}`;
+            try {
+                const savedPoints = sessionStorage.getItem(storageKey);
+                if (savedPoints) {
+                    const parsedPoints = JSON.parse(savedPoints);
+                    if (parsedPoints && parsedPoints.length > 0) {
+                        setSurveyPoints(parsedPoints);
+                        console.log('📂 MiniMapsComponent: Restored', parsedPoints.length, 'survey points from sessionStorage');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ MiniMapsComponent: Error loading survey points:', error);
+            }
+        }
+    }, [activeTaskIdFromSession]);
+
+    // Clear survey points when task changes
+    useEffect(() => {
+        if (activeTaskIdFromSession && prevTaskIdRef.current && prevTaskIdRef.current !== activeTaskIdFromSession) {
+            // Task has changed, clear old survey points
+            console.log('🔄 MiniMapsComponent: Task changed from', prevTaskIdRef.current, 'to', activeTaskIdFromSession);
+            setSurveyPoints([]);
+            
+            // Clear old task's saved points
+            const oldStorageKey = `miniMaps_surveyPoints_${prevTaskIdRef.current}`;
+            sessionStorage.removeItem(oldStorageKey);
+            console.log('🗑️ MiniMapsComponent: Cleared survey points for old task:', prevTaskIdRef.current);
+        }
+        
+        prevTaskIdRef.current = activeTaskIdFromSession;
+    }, [activeTaskIdFromSession]);
 
     // Get current location
     const getCurrentLocation = () => {
