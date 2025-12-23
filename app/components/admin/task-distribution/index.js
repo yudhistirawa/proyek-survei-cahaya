@@ -314,9 +314,8 @@ const TaskDistribution = () => {
           <TaskGrid
             tasks={filteredTasks}
             loading={loading}
-            onViewTask={handleViewTask}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteClick}
+            onView={handleViewTask}
+            onDelete={handleDeleteClick}
           />
         </div>
       </div>

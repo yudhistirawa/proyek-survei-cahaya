@@ -10,6 +10,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp } from '../../lib/firebase';
 import { loadTaskProgress, saveTaskProgress, clearTaskProgress } from '../../lib/taskProgress';
+import { safeParseKmzFromUrl } from '../../lib/kmz-utils';
 
 const DetailTugasPage = ({ onBack, taskData }) => {
     // Flexible date formatting helpers to avoid "Invalid Date" across different data types
@@ -234,18 +235,58 @@ const DetailTugasPage = ({ onBack, taskData }) => {
     }, [task?.createdBy, task?.createdByName]);
 
     // Sync parsed KMZ mapData to sessionStorage when it becomes available or changes
+    // Also attempt to parse KMZ if mapData is missing but kmzFile exists
     useEffect(() => {
-        try {
-            if (task?.mapData) {
-                sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
-                console.log('🔁 DetailTugasPage: Synced currentTaskKmzData from task.mapData');
-                // notify MiniMaps to reload
-                window.dispatchEvent(new Event('currentTaskChanged'));
+        const syncOrParseMapData = async () => {
+            try {
+                const taskType = task?.taskType || task?.type || 'existing';
+                
+                if (task?.mapData) {
+                    sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
+                    console.log('🔁 DetailTugasPage: Synced currentTaskKmzData from task.mapData for ' + taskType, task.mapData);
+                    // notify MiniMaps to reload
+                    window.dispatchEvent(new Event('currentTaskChanged'));
+                } else if (task?.kmzFile && !task?.mapData) {
+                    // If we have kmzFile but no mapData, try to parse it
+                    console.log('🔍 DetailTugasPage: Attempting to parse KMZ for ' + taskType + ' (no mapData found)');
+                    try {
+                        const parsedData = await safeParseKmzFromUrl(task.kmzFile);
+                        if (parsedData && (parsedData.coordinates || parsedData.polygons || parsedData.lines)) {
+                            console.log('✅ DetailTugasPage: Successfully parsed KMZ data for ' + taskType, parsedData);
+                            // Store the parsed data temporarily
+                            sessionStorage.setItem('currentTaskKmzData', JSON.stringify(parsedData));
+                            // Update task object in memory (this won't persist to database)
+                            task.mapData = parsedData;
+                            // notify MiniMaps to reload
+                            window.dispatchEvent(new Event('currentTaskChanged'));
+                        } else {
+                            console.warn('⚠️ DetailTugasPage: Parsed KMZ data is empty or invalid for ' + taskType);
+                        }
+                    } catch (parseError) {
+                        console.error('❌ DetailTugasPage: Failed to parse KMZ for ' + taskType + ':', parseError.message);
+                    }
+                } else {
+                    console.log('⚠️ DetailTugasPage: No task.mapData or kmzFile to sync for ' + taskType);
+                    // Also log what we do have
+                    if (task) {
+                        console.log('📋 DetailTugasPage: Available task data:', {
+                            id: task.id,
+                            type: taskType,
+                            hasMapData: !!task.mapData,
+                            hasKmzFile: !!task.kmzFile,
+                            hasLinkMymaps: !!task.linkMymaps,
+                            kmzFileName: task.kmzFile?.fileName,
+                            linkMymaps: task.linkMymaps
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('⚠️ DetailTugasPage: Failed to sync currentTaskKmzData:', e.message);
             }
-        } catch (e) {
-            console.warn('⚠️ DetailTugasPage: Failed to sync currentTaskKmzData:', e.message);
-        }
-    }, [task?.mapData]);
+        };
+        
+        syncOrParseMapData();
+    }, [task?.mapData, task?.id, task?.type, task?.taskType, task?.kmzFile, task?.linkMymaps]);
 
     const handleDetailJalan = (jalan) => {
         setSelectedJalan(jalan);
@@ -360,6 +401,11 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                 console.log('✅ DetailTugasPage: Set currentTaskId:', task.id);
             }
             
+            // Set task type for MiniMaps to handle correctly
+            const taskType = task.taskType || task.type || 'existing';
+            sessionStorage.setItem('currentTaskType', taskType);
+            console.log('✅ DetailTugasPage: Set currentTaskType:', taskType);
+            
             // Set task status in sessionStorage
             sessionStorage.setItem('currentTaskStatus', 'in_progress');
             console.log('✅ DetailTugasPage: Set currentTaskStatus: in_progress');
@@ -369,27 +415,31 @@ const DetailTugasPage = ({ onBack, taskData }) => {
             if (task.mapData) {
                 try {
                     sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
-                    console.log('✅ DetailTugasPage: Set currentTaskKmzData (parsed):', task.mapData);
+                    console.log('✅ DetailTugasPage: Set currentTaskKmzData (parsed) for ' + taskType + ':', task.mapData);
                 } catch (e) {
                     console.warn('⚠️ Failed to store currentTaskKmzData:', e.message);
                 }
+            } else {
+                console.warn('⚠️ DetailTugasPage: No task.mapData available for ' + taskType);
             }
 
             // 1) Prefer storing the full kmzFile object so MiniMaps can resolve storage path or URL safely
             if (task.kmzFile) {
                 try {
                     sessionStorage.setItem('currentTaskKmz', JSON.stringify(task.kmzFile));
-                    console.log('✅ DetailTugasPage: Set currentTaskKmz object:', task.kmzFile);
+                    console.log('✅ DetailTugasPage: Set currentTaskKmz object for ' + taskType + ':', task.kmzFile);
                 } catch {
                     const kmzUrlFallback = task.kmzFile.downloadURL || task.kmzFile.url || task.kmzFile.downloadUrl || '';
                     if (kmzUrlFallback) {
                         sessionStorage.setItem('currentTaskKmz', kmzUrlFallback);
-                        console.log('✅ DetailTugasPage: Set currentTaskKmz URL fallback:', kmzUrlFallback);
+                        console.log('✅ DetailTugasPage: Set currentTaskKmz URL fallback for ' + taskType + ':', kmzUrlFallback);
                     }
                 }
             } else if (task.linkMymaps) {
                 sessionStorage.setItem('currentTaskKmz', task.linkMymaps);
-                console.log('✅ DetailTugasPage: Set currentTaskKmz from linkMymaps:', task.linkMymaps);
+                console.log('✅ DetailTugasPage: Set currentTaskKmz from linkMymaps for ' + taskType + ':', task.linkMymaps);
+            } else {
+                console.warn('⚠️ DetailTugasPage: No kmzFile or linkMymaps available for ' + taskType);
             }
             
             // Set destination if available
@@ -401,7 +451,7 @@ const DetailTugasPage = ({ onBack, taskData }) => {
             // Force mini maps to show and auto-focus on KMZ data
             sessionStorage.setItem('miniMapsAutoFocus', 'true');
             sessionStorage.removeItem('miniMapsManuallyClosed');
-            console.log('✅ DetailTugasPage: Set miniMapsAutoFocus flag');
+            console.log('✅ DetailTugasPage: Set miniMapsAutoFocus flag for ' + taskType);
             
             // Beritahu listener bahwa task telah dimulai
             window.dispatchEvent(new Event('currentTaskChanged'));
@@ -410,11 +460,20 @@ const DetailTugasPage = ({ onBack, taskData }) => {
             window.dispatchEvent(new CustomEvent('taskStartedWithKmz', {
                 detail: {
                     taskId: task.id,
+                    taskType: taskType,
                     kmzData: task.mapData,
                     kmzFile: task.kmzFile,
                     linkMymaps: task.linkMymaps
                 }
             }));
+            
+            console.log('🎯 DetailTugasPage: Task started event dispatched with data:', {
+                taskId: task.id,
+                taskType: taskType,
+                hasMapData: !!task.mapData,
+                hasKmzFile: !!task.kmzFile,
+                hasLinkMymaps: !!task.linkMymaps
+            });
         } catch (error) {
             console.error('Error setting sessionStorage:', error);
         }
