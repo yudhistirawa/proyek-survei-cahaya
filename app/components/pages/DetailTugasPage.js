@@ -385,9 +385,56 @@ const DetailTugasPage = ({ onBack, taskData }) => {
         try {
             const existingId = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null;
             const existingStatus = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskStatus') : null;
+            
             if (existingId && existingId !== task.id && existingStatus !== 'completed') {
-                alert('Anda masih memiliki tugas lain yang sedang berlangsung. Selesaikan tugas tersebut terlebih dahulu sebelum memulai tugas baru.');
-                return;
+                // Verify the task still exists and is not completed by checking the database
+                try {
+                    const response = await fetch(`/api/task-assignments/${existingId}`);
+                    
+                    if (response.ok) {
+                        const existingTask = await response.json();
+                        
+                        // If task is completed or doesn't have an active status, clean up and allow new task
+                        if (existingTask.status === 'completed' || existingTask.status === 'pending') {
+                            console.log('⚠️ Existing task is completed or pending, cleaning up sessionStorage');
+                            sessionStorage.removeItem('currentTaskId');
+                            sessionStorage.removeItem('currentTaskStatus');
+                            sessionStorage.removeItem('currentTaskKmz');
+                            sessionStorage.removeItem('currentTaskDest');
+                            
+                            // Clean up Firestore progress if exists
+                            if (user?.uid) {
+                                await clearTaskProgress(user.uid, existingId);
+                            }
+                            
+                            window.dispatchEvent(new Event('currentTaskChanged'));
+                        } else if (existingTask.status === 'in_progress') {
+                            // Task is truly in progress
+                            alert('Anda masih memiliki tugas lain yang sedang berlangsung. Selesaikan tugas tersebut dahulu sebelum memulai tugas baru.');
+                            return;
+                        }
+                    } else if (response.status === 404) {
+                        // Task was deleted, clean up sessionStorage
+                        console.log('⚠️ Existing task was deleted, cleaning up sessionStorage');
+                        sessionStorage.removeItem('currentTaskId');
+                        sessionStorage.removeItem('currentTaskStatus');
+                        sessionStorage.removeItem('currentTaskKmz');
+                        sessionStorage.removeItem('currentTaskDest');
+                        
+                        // Clean up Firestore progress if exists
+                        if (user?.uid) {
+                            await clearTaskProgress(user.uid, existingId);
+                        }
+                        
+                        window.dispatchEvent(new Event('currentTaskChanged'));
+                    }
+                } catch (verifyError) {
+                    console.error('Error verifying existing task:', verifyError);
+                    // If we can't verify, clean up to be safe
+                    sessionStorage.removeItem('currentTaskId');
+                    sessionStorage.removeItem('currentTaskStatus');
+                    window.dispatchEvent(new Event('currentTaskChanged'));
+                }
             }
         } catch {}
 

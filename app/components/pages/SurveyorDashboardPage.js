@@ -201,11 +201,58 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                 const currentTaskId = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null;
                 const currentTaskStatus = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskStatus') : null;
                 
-                // If found in sessionStorage and not completed
+                // If found in sessionStorage and not completed, verify it's still valid
                 if (currentTaskId && currentTaskStatus !== 'completed') {
-                    setHasActiveTask(true);
-                    console.log('✅ Active task found in sessionStorage:', currentTaskId);
-                    return;
+                    // Verify the task still exists and is truly in progress
+                    try {
+                        const response = await fetch(`/api/task-assignments/${currentTaskId}`);
+                        
+                        if (response.ok) {
+                            const taskData = await response.json();
+                            
+                            // Check if task is actually in progress
+                            if (taskData.status === 'in_progress') {
+                                setHasActiveTask(true);
+                                console.log('✅ Active task verified in database:', currentTaskId);
+                                return;
+                            } else {
+                                // Task is completed or pending, clean up
+                                console.log('⚠️ Task status changed to', taskData.status, ', cleaning up');
+                                sessionStorage.removeItem('currentTaskId');
+                                sessionStorage.removeItem('currentTaskStatus');
+                                sessionStorage.removeItem('currentTaskKmz');
+                                sessionStorage.removeItem('currentTaskDest');
+                                
+                                // Clean up Firestore progress
+                                if (user?.uid) {
+                                    const { clearTaskProgress } = await import('../../lib/taskProgress');
+                                    await clearTaskProgress(user.uid, currentTaskId);
+                                }
+                                
+                                window.dispatchEvent(new Event('currentTaskChanged'));
+                            }
+                        } else if (response.status === 404) {
+                            // Task was deleted, clean up
+                            console.log('⚠️ Task was deleted, cleaning up sessionStorage');
+                            sessionStorage.removeItem('currentTaskId');
+                            sessionStorage.removeItem('currentTaskStatus');
+                            sessionStorage.removeItem('currentTaskKmz');
+                            sessionStorage.removeItem('currentTaskDest');
+                            
+                            // Clean up Firestore progress
+                            if (user?.uid) {
+                                const { clearTaskProgress } = await import('../../lib/taskProgress');
+                                await clearTaskProgress(user.uid, currentTaskId);
+                            }
+                            
+                            window.dispatchEvent(new Event('currentTaskChanged'));
+                        }
+                    } catch (verifyError) {
+                        console.error('Error verifying task:', verifyError);
+                        // If verification fails, keep the current state but log it
+                        setHasActiveTask(true);
+                        return;
+                    }
                 }
                 
                 // If not in sessionStorage, check Firestore for persistent progress
@@ -214,14 +261,37 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                     const activeProgress = allProgress.find(p => p.status === 'in_progress');
                     
                     if (activeProgress) {
-                        setHasActiveTask(true);
-                        // Restore to sessionStorage
-                        if (typeof window !== 'undefined') {
-                            sessionStorage.setItem('currentTaskId', activeProgress.taskId);
-                            sessionStorage.setItem('currentTaskStatus', 'in_progress');
-                            console.log('✅ Active task restored from Firestore:', activeProgress.taskId);
+                        // Verify this task still exists before restoring
+                        try {
+                            const response = await fetch(`/api/task-assignments/${activeProgress.taskId}`);
+                            
+                            if (response.ok) {
+                                const taskData = await response.json();
+                                
+                                if (taskData.status === 'in_progress') {
+                                    setHasActiveTask(true);
+                                    // Restore to sessionStorage
+                                    if (typeof window !== 'undefined') {
+                                        sessionStorage.setItem('currentTaskId', activeProgress.taskId);
+                                        sessionStorage.setItem('currentTaskStatus', 'in_progress');
+                                        console.log('✅ Active task restored from Firestore:', activeProgress.taskId);
+                                    }
+                                    return;
+                                } else {
+                                    // Task status changed, clean up Firestore
+                                    console.log('⚠️ Task in Firestore has status', taskData.status, ', cleaning up');
+                                    const { clearTaskProgress } = await import('../../lib/taskProgress');
+                                    await clearTaskProgress(user.uid, activeProgress.taskId);
+                                }
+                            } else if (response.status === 404) {
+                                // Task was deleted, clean up Firestore
+                                console.log('⚠️ Task in Firestore was deleted, cleaning up');
+                                const { clearTaskProgress } = await import('../../lib/taskProgress');
+                                await clearTaskProgress(user.uid, activeProgress.taskId);
+                            }
+                        } catch (verifyError) {
+                            console.error('Error verifying Firestore task:', verifyError);
                         }
-                        return;
                     }
                 }
                 

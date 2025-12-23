@@ -164,6 +164,51 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propS
         }
     }, [propSurveyorPoints]);
 
+    // Auto-restore surveyor points after browser refresh (only if sessionStorage has active task)
+    useEffect(() => {
+        const restoreAfterRefresh = async () => {
+            // Hanya restore jika ada active task di sessionStorage (browser refresh scenario)
+            const currentTaskId = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null;
+            const currentTaskStatus = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskStatus') : null;
+            const currentUserId = userId || (auth.currentUser ? auth.currentUser.uid : null);
+            
+            // Cek apakah ini adalah browser refresh (sessionStorage ada tapi state kosong)
+            if (currentTaskId && currentTaskStatus === 'in_progress' && currentUserId && surveyorProgressPoints.length === 0) {
+                console.log('🔄 MiniMapsComponent: Browser refresh detected - restoring surveyor points from Firestore');
+                console.log('   📋 TaskID:', currentTaskId);
+                console.log('   👤 UserID:', currentUserId);
+                
+                try {
+                    const progress = await loadTaskProgress(currentUserId, currentTaskId);
+                    
+                    if (progress && progress.surveyorPoints && progress.surveyorPoints.length > 0) {
+                        const points = progress.surveyorPoints;
+                        console.log('✅ MiniMapsComponent: Restored', points.length, 'surveyor points after refresh');
+                        setSurveyorProgressPoints(points);
+                        
+                        // Trigger map fit untuk zoom ke points (tanpa auto-show)
+                        setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('fitSurveyorPoints', {
+                                detail: { points }
+                            }));
+                        }, 1000);
+                    } else {
+                        console.log('ℹ️ MiniMapsComponent: No surveyor points to restore after refresh');
+                    }
+                } catch (error) {
+                    console.error('❌ MiniMapsComponent: Error restoring surveyor points after refresh:', error);
+                }
+            }
+        };
+        
+        // Delay untuk memastikan auth dan sessionStorage sudah ready
+        const timer = setTimeout(() => {
+            restoreAfterRefresh();
+        }, 500);
+        
+        return () => clearTimeout(timer);
+    }, []); // Only run once on mount
+
     // Load KMZ data from URL
     const loadKmzData = async (kmzUrl) => {
         if (!kmzUrl) {
