@@ -589,6 +589,86 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                         )}
                     </div>
 
+                    {/* Mulai Tugas / Status Tugas */}
+                    <div className="mb-4 space-y-3">
+                        {/* Button Mulai Tugas - disabled jika sudah in_progress atau completed */}
+                        <button
+                            onClick={handleStartTask}
+                            disabled={taskStatus === 'in_progress' || taskStatus === 'started' || taskStatus === 'completed'}
+                            className={`w-full border rounded-xl px-4 py-3 text-left flex items-center justify-between transition-colors duration-200 ${
+                                taskStatus === 'pending' 
+                                    ? 'bg-green-50 border-green-200 hover:bg-green-100 cursor-pointer' 
+                                    : 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+                            }`}
+                        >
+                            <span className={`font-medium ${
+                                taskStatus === 'pending' ? 'text-green-700' : 'text-gray-500'
+                            }`}>
+                                {taskStatus === 'pending' ? 'Mulai Tugas' : 'Tugas Sudah Dimulai'}
+                            </span>
+                            <Play size={16} className={taskStatus === 'pending' ? 'text-green-500' : 'text-gray-400'} />
+                        </button>
+
+                        {/* Button Selesaikan Tugas - enabled hanya jika in_progress */}
+                        <button
+                            onClick={handleCompleteTask}
+                            disabled={taskStatus !== 'in_progress' && taskStatus !== 'started'}
+                            className={`w-full border rounded-xl px-4 py-3 text-left flex items-center justify-between transition-colors duration-200 ${
+                                (taskStatus === 'in_progress' || taskStatus === 'started')
+                                    ? 'bg-orange-50 border-orange-200 hover:bg-orange-100 cursor-pointer' 
+                                    : 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
+                            }`}
+                        >
+                            <span className={`font-medium ${
+                                (taskStatus === 'in_progress' || taskStatus === 'started') ? 'text-orange-700' : 'text-gray-500'
+                            }`}>
+                                {(taskStatus === 'in_progress' || taskStatus === 'started') 
+                                    ? 'Selesaikan Tugas' 
+                                    : taskStatus === 'completed' 
+                                        ? 'Tugas Sudah Selesai'
+                                        : 'Belum Memulai Tugas'
+                                }
+                            </span>
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                (taskStatus === 'in_progress' || taskStatus === 'started') ? 'bg-orange-500' : 'bg-gray-400'
+                            }`}>
+                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                        </button>
+
+                        {/* Status indicator */}
+                        {(taskStatus === 'in_progress' || taskStatus === 'started') && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-blue-700 font-medium text-sm">Tugas Sedang Berlangsung</span>
+                                </div>
+                                <p className="text-blue-600 text-xs mt-1">Progress akan tersimpan otomatis</p>
+                            </div>
+                        )}
+                        
+                        {taskStatus === 'completed' && (
+                            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs">✓</span>
+                                    </div>
+                                    <span className="text-green-700 font-medium">Tugas Telah Selesai</span>
+                                </div>
+                                {task.completedAt && (
+                                    <div className="text-green-600 text-sm text-center">
+                                        Selesai pada: {formatDateTime(task.completedAt)}
+                                    </div>
+                                )}
+                                {!task.completedAt && taskStatus === 'completed' && (
+                                    <div className="text-green-600 text-sm text-center">
+                                        Selesai pada: {formatDateTime(new Date())}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Info Tugas */}
                     <div className="mb-4 space-y-3">
                         {/* Admin Pemberi Tugas */}

@@ -1562,7 +1562,7 @@ const SurveyExistingPage = ({ onBack }) => {
                 </button>
 
                 {openDropdowns.murni && (
-                    <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden animate-slideDown">
+                    <div className="absolute z-[9999] w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden animate-slideDown">
                         {dropdownOptions.murni.map((option, index) => (
                             <button
                                 key={index}
