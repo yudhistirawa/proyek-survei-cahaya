@@ -183,8 +183,36 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
                 }
             };
 
+            // Listen for fit surveyor points event
+            const handleFitSurveyorPoints = (event) => {
+                console.log('🎯 MiniMapsLeaflet: Received fitSurveyorPoints event:', event.detail);
+                if (event.detail.points && Array.isArray(event.detail.points) && event.detail.points.length > 0 && mapInstance.current) {
+                    const bounds = [];
+                    event.detail.points.forEach(point => {
+                        if (point.lat && point.lng) {
+                            bounds.push([point.lat, point.lng]);
+                        }
+                    });
+                    
+                    if (bounds.length > 0) {
+                        console.log('🎯 MiniMapsLeaflet: Fitting map to', bounds.length, 'surveyor points');
+                        try {
+                            mapInstance.current.fitBounds(bounds, {
+                                padding: [30, 30],
+                                maxZoom: 16,
+                                animate: true
+                            });
+                            console.log('✅ MiniMapsLeaflet: Successfully fitted bounds to surveyor points');
+                        } catch (e) {
+                            console.warn('Error fitting bounds to surveyor points:', e);
+                        }
+                    }
+                }
+            };
+
             window.addEventListener('kmzDataLoaded', handleKmzDataLoaded);
             window.addEventListener('focusUserLocation', handleFocusUserLocation);
+            window.addEventListener('fitSurveyorPoints', handleFitSurveyorPoints);
 
             // Trigger map loaded callback
             if (onMapLoaded) {
@@ -194,6 +222,7 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
             // Store cleanup functions for event listeners
             mapInstance.current._kmzDataLoadedHandler = handleKmzDataLoaded;
             mapInstance.current._focusUserLocationHandler = handleFocusUserLocation;
+            mapInstance.current._fitSurveyorPointsHandler = handleFitSurveyorPoints;
 
             // Cleanup function
             return () => {
@@ -210,6 +239,9 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
                 }
                 if (mapInstance.current && mapInstance.current._focusUserLocationHandler) {
                     window.removeEventListener('focusUserLocation', mapInstance.current._focusUserLocationHandler);
+                }
+                if (mapInstance.current && mapInstance.current._fitSurveyorPointsHandler) {
+                    window.removeEventListener('fitSurveyorPoints', mapInstance.current._fitSurveyorPointsHandler);
                 }
                 
                 if (mapInstance.current) {

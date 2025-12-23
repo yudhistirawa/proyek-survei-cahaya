@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, X, Maximize2, Minimize2, Navigation, Target, Crosshair, Map } from 'lucide-react';
+import { MapPin, X, Maximize2, Minimize2, Navigation, Target, Crosshair, Map, RefreshCw } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { getFirestore, collection, query, where, onSnapshot, serverTimestamp, getDocs, doc, getDoc } from 'firebase/firestore';
 import { firebaseApp, storage } from '../lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import dynamic from 'next/dynamic';
+import { loadTaskProgress } from '../lib/taskProgress';
 
 // Loading component for lazy loaded components
 const LoadingComponent = ({ message = "Memuat..." }) => (
@@ -65,8 +66,82 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propS
     const [kmzData, setKmzData] = useState(null);
     const [kmzLoading, setKmzLoading] = useState(false);
     const [kmzError, setKmzError] = useState(null);
+    const [isReloadingPoints, setIsReloadingPoints] = useState(false);
     const watchIdRef = useRef(null);
     const prevTaskIdRef = useRef(null);
+
+    // Function to reload surveyor points from Firestore
+    const reloadSurveyorPoints = useCallback(async () => {
+        const currentTaskId = typeof window !== 'undefined' ? sessionStorage.getItem('currentTaskId') : null;
+        const currentUserId = userId || (auth.currentUser ? auth.currentUser.uid : null);
+        
+        if (!currentTaskId || !currentUserId) {
+            console.log('⚠️ MiniMapsComponent: Cannot reload surveyor points - no task or user');
+            console.log('   - currentTaskId:', currentTaskId);
+            console.log('   - currentUserId:', currentUserId);
+            return;
+        }
+
+        setIsReloadingPoints(true);
+        console.log('🔄 MiniMapsComponent: Reloading surveyor points from Firestore');
+        console.log('   📋 TaskID:', currentTaskId);
+        console.log('   👤 UserID (Surveyor):', currentUserId);
+
+        try {
+            // Load progress HANYA untuk userId dan taskId yang spesifik
+            // Firestore path: taskProgress/${userId}_${taskId}
+            const progress = await loadTaskProgress(currentUserId, currentTaskId);
+            console.log('📦 MiniMapsComponent: Loaded progress from Firestore:', progress);
+            
+            if (progress) {
+                // VALIDASI KEAMANAN: Pastikan data yang dimuat benar milik surveyor ini
+                if (progress.userId && progress.userId !== currentUserId) {
+                    console.error('🚫 SECURITY: Progress data userId mismatch!');
+                    console.error('   Expected userId:', currentUserId);
+                    console.error('   Got userId:', progress.userId);
+                    console.error('   Blocking unauthorized data!');
+                    setSurveyorProgressPoints([]);
+                    setIsReloadingPoints(false);
+                    return;
+                }
+
+                if (progress.taskId && progress.taskId !== currentTaskId) {
+                    console.error('🚫 SECURITY: Progress data taskId mismatch!');
+                    console.error('   Expected taskId:', currentTaskId);
+                    console.error('   Got taskId:', progress.taskId);
+                    console.error('   Blocking unauthorized data!');
+                    setSurveyorProgressPoints([]);
+                    setIsReloadingPoints(false);
+                    return;
+                }
+
+                const points = progress.surveyorPoints || [];
+                console.log('✅ MiniMapsComponent: Validation passed - Found', points.length, 'surveyor points');
+                console.log('   👤 Confirmed UserID:', progress.userId || currentUserId);
+                console.log('   📋 Confirmed TaskID:', progress.taskId || currentTaskId);
+                console.log('📍 MiniMapsComponent: Points data:', JSON.stringify(points, null, 2));
+                setSurveyorProgressPoints(points);
+                
+                // Manual reload: trigger map fit untuk zoom ke points
+                if (points.length > 0) {
+                    console.log('🎯 MiniMapsComponent: Triggering map fit for', points.length, 'points (manual reload)');
+                    // Trigger map to fit bounds to show all points
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('fitSurveyorPoints', {
+                            detail: { points }
+                        }));
+                    }, 300);
+                }
+            } else {
+                console.log('ℹ️ MiniMapsComponent: No surveyor points found in progress for this user & task');
+                setSurveyorProgressPoints([]);
+            }
+        } catch (error) {
+            console.error('❌ MiniMapsComponent: Error reloading surveyor points:', error);
+        } finally {
+            setIsReloadingPoints(false);
+        }
+    }, [userId]);
 
     // Sync with surveyor progress points from props
     useEffect(() => {
@@ -84,8 +159,8 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propS
                 setHasActiveTask(true);
             }
         } else {
-            console.log('⚠️ MiniMapsComponent: No surveyor progress points from props or invalid format, clearing state');
-            setSurveyorProgressPoints([]);
+            console.log('⚠️ MiniMapsComponent: No surveyor progress points from props');
+            // TIDAK auto-reload, user harus klik button manual
         }
     }, [propSurveyorPoints]);
 
@@ -1441,6 +1516,15 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propS
                     )}
                 </div>
                 <div className="flex items-center space-x-1.5">
+                    <button
+                        onClick={reloadSurveyorPoints}
+                        className="mini-maps-btn p-2 hover:bg-green-50 rounded-lg transition-all"
+                        style={{ cursor: 'pointer' }}
+                        title="Reload Titik Koordinat"
+                        disabled={isReloadingPoints}
+                    >
+                        <RefreshCw size={16} strokeWidth={2.5} className={`${isReloadingPoints ? 'animate-spin text-green-400' : 'text-green-600'}`} />
+                    </button>
                     <button
                         onClick={reloadKmzFromSession}
                         className="mini-maps-btn p-2 hover:bg-blue-50 rounded-lg transition-all"

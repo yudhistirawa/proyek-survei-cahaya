@@ -127,19 +127,23 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                             sessionStorage.setItem('currentTaskStatus', 'in_progress');
                             sessionStorage.setItem('currentTaskType', taskType);
                             
-                            // Restore KMZ data
-                            if (task.mapData) {
-                                sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
-                                console.log('✅ Restored mapData for ' + taskType);
+                            // PENTING: Restore KMZ data dari progress (bukan dari task)
+                            // Prioritas: 1) progress.mapData, 2) task.mapData
+                            const restoredMapData = progress.mapData || task.mapData;
+                            const restoredKmzFile = progress.kmzFile || task.kmzFile;
+                            const restoredLinkMymaps = progress.linkMymaps || task.linkMymaps;
+                            
+                            if (restoredMapData) {
+                                sessionStorage.setItem('currentTaskKmzData', JSON.stringify(restoredMapData));
+                                console.log('✅ Restored mapData from progress for ' + taskType);
                             }
                             
-                            // Restore kmzFile
-                            if (task.kmzFile) {
-                                sessionStorage.setItem('currentTaskKmz', JSON.stringify(task.kmzFile));
-                                console.log('✅ Restored kmzFile for ' + taskType);
-                            } else if (task.linkMymaps) {
-                                sessionStorage.setItem('currentTaskKmz', task.linkMymaps);
-                                console.log('✅ Restored linkMymaps for ' + taskType);
+                            if (restoredKmzFile) {
+                                sessionStorage.setItem('currentTaskKmz', JSON.stringify(restoredKmzFile));
+                                console.log('✅ Restored kmzFile from progress for ' + taskType);
+                            } else if (restoredLinkMymaps) {
+                                sessionStorage.setItem('currentTaskKmz', restoredLinkMymaps);
+                                console.log('✅ Restored linkMymaps from progress for ' + taskType);
                             }
                             
                             // Force mini maps to show
@@ -147,7 +151,7 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                             sessionStorage.removeItem('miniMapsManuallyClosed');
                             
                             window.dispatchEvent(new Event('currentTaskChanged'));
-                            console.log('✅ Task session fully restored from progress for ' + taskType + ' with ' + restoredPoints.length + ' points');
+                            console.log('✅ Task session fully restored from Firestore progress for ' + taskType + ' with ' + restoredPoints.length + ' points and KMZ data');
                         } catch (e) {
                             console.warn('Failed to restore session:', e);
                         }
@@ -428,9 +432,13 @@ const DetailTugasPage = ({ onBack, taskData }) => {
                     kmzFile: task.kmzFile || null,
                     mapData: task.mapData || null,
                     linkMymaps: task.linkMymaps || null
-                }
+                },
+                // PENTING: Simpan KMZ data di level top untuk mudah diakses
+                kmzFile: task.kmzFile || null,
+                mapData: task.mapData || null,
+                linkMymaps: task.linkMymaps || null
             });
-            console.log('✅ Saved task progress to Firestore for ' + taskType + ' with complete data and ' + (surveyorPoints || []).length + ' existing points');
+            console.log('✅ Saved task progress to Firestore for ' + taskType + ' with complete KMZ data and ' + (surveyorPoints || []).length + ' existing points');
         }
         
         // Simpan KMZ & destinasi di sessionStorage agar dapat diakses FloatingMapsButton
