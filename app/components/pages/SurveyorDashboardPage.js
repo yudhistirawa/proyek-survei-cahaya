@@ -282,16 +282,10 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
                         </div>
                         <button
                             onClick={() => {
-                                // Only clear task session data on logout, do NOT mark tasks as completed
-                                try {
-                                    sessionStorage.removeItem('currentTaskId');
-                                    sessionStorage.removeItem('currentTaskKmz');
-                                    sessionStorage.removeItem('currentTaskDest');
-                                    // Remove task status but don't mark as completed
-                                    sessionStorage.removeItem('currentTaskStatus');
-                                } catch (error) {
-                                    console.error('Error clearing sessionStorage:', error);
-                                }
+                                // JANGAN hapus sessionStorage saat logout
+                                // Data task yang sedang berjalan tersimpan di Firestore
+                                // dan akan di-restore saat login kembali
+                                console.log('ℹ️ Logout: Task progress tetap tersimpan di Firestore');
                                 onLogout();
                             }}
                             className="p-2 sm:p-2.5 md:p-3 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg group"
@@ -798,16 +792,10 @@ const SurveyorDashboardPage = ({ user, onLogout }) => {
 
                         <button
                             onClick={() => {
-                                // Only clear task session data on logout, do NOT mark tasks as completed
-                                try {
-                                    sessionStorage.removeItem('currentTaskId');
-                                    sessionStorage.removeItem('currentTaskKmz');
-                                    sessionStorage.removeItem('currentTaskDest');
-                                    // Remove task status but don't mark as completed
-                                    sessionStorage.removeItem('currentTaskStatus');
-                                } catch (error) {
-                                    console.error('Error clearing sessionStorage:', error);
-                                }
+                                // JANGAN hapus sessionStorage saat logout
+                                // Data task yang sedang berjalan tersimpan di Firestore
+                                // dan akan di-restore saat login kembali
+                                console.log('ℹ️ Logout: Task progress tetap tersimpan di Firestore');
                                 onLogout();
                             }}
                             className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-2xl font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl"

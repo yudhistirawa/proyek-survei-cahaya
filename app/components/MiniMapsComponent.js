@@ -70,9 +70,22 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propS
 
     // Sync with surveyor progress points from props
     useEffect(() => {
+        console.log('🔄 MiniMapsComponent: Received propSurveyorPoints:', propSurveyorPoints);
         if (propSurveyorPoints && Array.isArray(propSurveyorPoints)) {
+            console.log('🔄 MiniMapsComponent: Syncing surveyor progress points from props:', propSurveyorPoints.length, 'points');
+            console.log('📍 MiniMapsComponent: Points data:', JSON.stringify(propSurveyorPoints, null, 2));
             setSurveyorProgressPoints(propSurveyorPoints);
-            console.log('✅ MiniMapsComponent: Loaded surveyor progress points:', propSurveyorPoints.length);
+            console.log('✅ MiniMapsComponent: Surveyor progress points updated in state');
+            
+            // If we have points and mini maps is not visible, auto-show it
+            if (propSurveyorPoints.length > 0 && !isVisible) {
+                console.log('🎯 MiniMapsComponent: Auto-showing mini maps because we have', propSurveyorPoints.length, 'surveyor points');
+                setIsVisible(true);
+                setHasActiveTask(true);
+            }
+        } else {
+            console.log('⚠️ MiniMapsComponent: No surveyor progress points from props or invalid format, clearing state');
+            setSurveyorProgressPoints([]);
         }
     }, [propSurveyorPoints]);
 
@@ -1548,6 +1561,17 @@ const MiniMapsComponent = ({ taskId, userId, previewPoint, surveyorPoints: propS
                         </div>
                         <span className="text-xs text-blue-600 font-semibold">{surveyPoints.filter(p => p.type === 'propose').length}</span>
                     </div>
+                    
+                    {/* Surveyor Progress Points */}
+                    {surveyorProgressPoints && surveyorProgressPoints.length > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2.5 h-2.5 bg-green-600 rounded-full shadow-sm"></div>
+                                <span className="text-xs font-medium text-gray-700">Progress Tersimpan</span>
+                            </div>
+                            <span className="text-xs text-green-600 font-semibold">{surveyorProgressPoints.length}</span>
+                        </div>
+                    )}
 
                     {/* Surveyor Progress Points */}
                     {surveyorProgressPoints.length > 0 && (

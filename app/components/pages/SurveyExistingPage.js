@@ -11,6 +11,7 @@ import MiniMapsComponent from '../MiniMapsComponentLazy';
 import MobileCameraCapture from '../MobileCameraCaptureLazy';
 import SuccessAlertModal from '../modals/SuccessAlertModal';
 import { openDirectCameraAndTakePhoto } from '../../lib/directCameraUtils';
+import { saveTaskProgress, loadTaskProgress } from '../../lib/taskProgress';
 
 const SurveyExistingPage = ({ onBack }) => {
     const [user, setUser] = useState(null);
@@ -629,25 +630,55 @@ const SurveyExistingPage = ({ onBack }) => {
                 const lat = parseFloat(latStr);
                 const lng = parseFloat(lngStr);
                 if (Number.isFinite(lat) && Number.isFinite(lng) && typeof window !== 'undefined') {
-                    // Fire a custom event so MiniMaps can add the marker immediately
+                    const newPoint = {
+                        lat,
+                        lng,
+                        type: 'existing',
+                        name: `Survey Existing - ${getCombinedLocationText()}`,
+                        description: formData.keterangan || '',
+                        timestamp: new Date().toISOString(),
+                        docId: docRef.id
+                    };
+
+                    // Fire custom event so MiniMaps can add the marker immediately
                     window.dispatchEvent(new CustomEvent('surveyPointAdded', {
-                        detail: {
-                            lat,
-                            lng,
-                            type: 'existing',
-                            title: `Survey Existing - ${getCombinedLocationText()}`,
-                            data: { docId: docRef.id }
-                        }
+                        detail: newPoint
                     }));
+
+                    // PENTING: Trigger event surveyorPointAdded untuk DetailTugasPage
+                    window.dispatchEvent(new CustomEvent('surveyorPointAdded', {
+                        detail: newPoint
+                    }));
+                    console.log('✅ SurveyExistingPage: Triggered surveyorPointAdded event with point:', newPoint);
+
+                    // Save to taskProgress Firestore
+                    const currentTaskId = sessionStorage.getItem('currentTaskId');
+                    if (currentTaskId && user) {
+                        try {
+                            // Load existing progress
+                            const existingProgress = await loadTaskProgress(user.uid, currentTaskId);
+                            const existingPoints = existingProgress?.surveyorPoints || [];
+                            
+                            // Add new point
+                            const updatedPoints = [...existingPoints, newPoint];
+                            
+                            // Save to Firestore
+                            await saveTaskProgress(user.uid, currentTaskId, {
+                                surveyorPoints: updatedPoints,
+                                totalPoints: updatedPoints.length,
+                                lastUpdated: new Date().toISOString()
+                            });
+                            console.log('✅ SurveyExistingPage: Saved surveyor point to taskProgress Firestore:', updatedPoints.length, 'total points');
+                        } catch (taskProgressErr) {
+                            console.error('❌ SurveyExistingPage: Failed to save to taskProgress:', taskProgressErr);
+                        }
+                    }
+
                     // Persist latest submitted point as a fallback (read by MiniMaps on mount)
                     try {
                         sessionStorage.setItem('lastSubmittedSurveyPoint', JSON.stringify({
-                            lat,
-                            lng,
-                            type: 'existing',
-                            title: `Survey Existing - ${getCombinedLocationText()}`,
-                            ts: Date.now(),
-                            data: { docId: docRef.id }
+                            ...newPoint,
+                            ts: Date.now()
                         }));
                     } catch (ssErr) {
                         console.warn('Failed to write lastSubmittedSurveyPoint to sessionStorage:', ssErr);

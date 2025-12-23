@@ -9,6 +9,7 @@ import usePageTitle from '../../hooks/usePageTitle';
 import useRealtimeLocation from '../../hooks/useRealtimeLocation';
 import MiniMapsComponent from '../MiniMapsComponentLazy';
 import ModernAlertModal from '../modals/ModernAlertModal';
+import { saveTaskProgress, loadTaskProgress } from '../../lib/taskProgress';
 
 const SurveyTiangAPJProposePage = ({ onBack }) => {
   const [user, setUser] = useState(null);
@@ -392,6 +393,70 @@ const SurveyTiangAPJProposePage = ({ onBack }) => {
       
       const docRef = await addDoc(collection(db, 'survey_apj_propose'), docData);
       console.log('APJ Propose doc created with ID:', docRef.id);
+
+      // Trigger event untuk mini maps dan save to taskProgress
+      try {
+        const [latStr, lngStr] = String(formData.titikKordinat || '').split(',').map(s => s.trim());
+        const lat = parseFloat(latStr);
+        const lng = parseFloat(lngStr);
+        if (Number.isFinite(lat) && Number.isFinite(lng) && typeof window !== 'undefined') {
+          const newPoint = {
+            lat,
+            lng,
+            type: 'propose',
+            name: `Survey APJ Propose - ${formData.namaJalan || 'Tanpa Nama'}`,
+            description: formData.keterangan || '',
+            timestamp: new Date().toISOString(),
+            docId: docRef.id
+          };
+
+          // Fire custom event so MiniMaps can add the marker immediately
+          window.dispatchEvent(new CustomEvent('surveyPointAdded', {
+            detail: newPoint
+          }));
+
+          // PENTING: Trigger event surveyorPointAdded untuk DetailTugasPage
+          window.dispatchEvent(new CustomEvent('surveyorPointAdded', {
+            detail: newPoint
+          }));
+          console.log('✅ SurveyTiangAPJProposePage: Triggered surveyorPointAdded event with point:', newPoint);
+
+          // Save to taskProgress Firestore
+          const currentTaskId = sessionStorage.getItem('currentTaskId');
+          if (currentTaskId && user) {
+            try {
+              // Load existing progress
+              const existingProgress = await loadTaskProgress(user.uid, currentTaskId);
+              const existingPoints = existingProgress?.surveyorPoints || [];
+              
+              // Add new point
+              const updatedPoints = [...existingPoints, newPoint];
+              
+              // Save to Firestore
+              await saveTaskProgress(user.uid, currentTaskId, {
+                surveyorPoints: updatedPoints,
+                totalPoints: updatedPoints.length,
+                lastUpdated: new Date().toISOString()
+              });
+              console.log('✅ SurveyTiangAPJProposePage: Saved surveyor point to taskProgress Firestore:', updatedPoints.length, 'total points');
+            } catch (taskProgressErr) {
+              console.error('❌ SurveyTiangAPJProposePage: Failed to save to taskProgress:', taskProgressErr);
+            }
+          }
+
+          // Persist latest submitted point as a fallback
+          try {
+            sessionStorage.setItem('lastSubmittedSurveyPoint', JSON.stringify({
+              ...newPoint,
+              ts: Date.now()
+            }));
+          } catch (ssErr) {
+            console.warn('Failed to write lastSubmittedSurveyPoint to sessionStorage:', ssErr);
+          }
+        }
+      } catch (e) {
+        console.warn('MiniMaps optimistic event failed (propose):', e);
+      }
 
       // Upload photos (if any) to Firebase Storage under 'survey_apj'
       let fotoTitikAktualUrl = null;

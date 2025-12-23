@@ -100,26 +100,54 @@ const DetailTugasPage = ({ onBack, taskData }) => {
     useEffect(() => {
         const loadProgress = async () => {
             if (user && task?.id) {
+                console.log('🔍 DetailTugasPage: Loading progress for user', user.uid, 'task', task.id);
                 const progress = await loadTaskProgress(user.uid, task.id);
+                console.log('📦 DetailTugasPage: Progress loaded:', progress);
+                
                 if (progress) {
                     setTaskProgress(progress);
-                    setSurveyorPoints(progress.surveyorPoints || []);
-                    console.log('✅ Loaded task progress:', progress);
                     
-                    // If task was in progress, restore session
+                    // PENTING: Restore surveyor points dari Firestore
+                    const restoredPoints = progress.surveyorPoints || [];
+                    console.log('🎯 DetailTugasPage: Restoring surveyor points:', restoredPoints);
+                    setSurveyorPoints(restoredPoints);
+                    console.log('✅ DetailTugasPage: Loaded task progress with', restoredPoints.length, 'surveyor points');
+                    console.log('📍 DetailTugasPage: Surveyor points state updated, MiniMapsComponent should receive:', restoredPoints);
+                    
+                    // If task was in progress, restore session completely
                     if (progress.status === 'in_progress') {
                         setTaskStatus('in_progress');
                         setShowMiniMaps(true);
                         
-                        // Restore sessionStorage for continuity
+                        // Restore sessionStorage for continuity with ALL data
                         try {
+                            const taskType = task.taskType || task.type || progress.taskData?.taskType || 'existing';
+                            
                             sessionStorage.setItem('currentTaskId', task.id);
                             sessionStorage.setItem('currentTaskStatus', 'in_progress');
+                            sessionStorage.setItem('currentTaskType', taskType);
+                            
+                            // Restore KMZ data
                             if (task.mapData) {
                                 sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
+                                console.log('✅ Restored mapData for ' + taskType);
                             }
+                            
+                            // Restore kmzFile
+                            if (task.kmzFile) {
+                                sessionStorage.setItem('currentTaskKmz', JSON.stringify(task.kmzFile));
+                                console.log('✅ Restored kmzFile for ' + taskType);
+                            } else if (task.linkMymaps) {
+                                sessionStorage.setItem('currentTaskKmz', task.linkMymaps);
+                                console.log('✅ Restored linkMymaps for ' + taskType);
+                            }
+                            
+                            // Force mini maps to show
+                            sessionStorage.setItem('miniMapsAutoFocus', 'true');
+                            sessionStorage.removeItem('miniMapsManuallyClosed');
+                            
                             window.dispatchEvent(new Event('currentTaskChanged'));
-                            console.log('✅ Task session restored from progress');
+                            console.log('✅ Task session fully restored from progress for ' + taskType + ' with ' + restoredPoints.length + ' points');
                         } catch (e) {
                             console.warn('Failed to restore session:', e);
                         }
@@ -129,7 +157,7 @@ const DetailTugasPage = ({ onBack, taskData }) => {
         };
 
         loadProgress();
-    }, [user, task?.id]);
+    }, [user, task?.id, task?.mapData, task?.kmzFile, task?.linkMymaps, task?.type, task?.taskType]);
 
     // Listen for surveyor point updates
     useEffect(() => {
@@ -240,6 +268,12 @@ const DetailTugasPage = ({ onBack, taskData }) => {
         const syncOrParseMapData = async () => {
             try {
                 const taskType = task?.taskType || task?.type || 'existing';
+                
+                // Always set taskType to sessionStorage when task is available
+                if (task?.id) {
+                    sessionStorage.setItem('currentTaskType', taskType);
+                    console.log('🔁 DetailTugasPage: Set currentTaskType:', taskType);
+                }
                 
                 if (task?.mapData) {
                     sessionStorage.setItem('currentTaskKmzData', JSON.stringify(task.mapData));
@@ -380,17 +414,23 @@ const DetailTugasPage = ({ onBack, taskData }) => {
         setTaskStatus('in_progress');
         console.log('🔄 Task status changed to in_progress');
         
-        // Save progress to Firestore
+        // Save progress to Firestore with complete data
         if (user && task.id) {
+            const taskType = task.taskType || task.type || 'existing';
             await saveTaskProgress(user.uid, task.id, {
                 status: 'in_progress',
                 startedAt: new Date().toISOString(),
-                surveyorPoints: [],
+                surveyorPoints: surveyorPoints || [], // Save existing points if any
+                totalPoints: (surveyorPoints || []).length,
                 taskData: {
                     title: task.judulTugas || task.title || 'Tugas Survey',
-                    taskType: task.taskType || task.type || 'existing'
+                    taskType: taskType,
+                    kmzFile: task.kmzFile || null,
+                    mapData: task.mapData || null,
+                    linkMymaps: task.linkMymaps || null
                 }
             });
+            console.log('✅ Saved task progress to Firestore for ' + taskType + ' with complete data and ' + (surveyorPoints || []).length + ' existing points');
         }
         
         // Simpan KMZ & destinasi di sessionStorage agar dapat diakses FloatingMapsButton
@@ -1028,11 +1068,13 @@ const DetailTugasPage = ({ onBack, taskData }) => {
             {task.type === 'propose' ? renderProposeTask() : renderExistingTask()}
 
             {/* Mini Maps Component - Always show if task is active */}
+            {console.log('🗺️ DetailTugasPage: Rendering MiniMapsComponent with surveyorPoints:', surveyorPoints?.length || 0, 'points')}
             <MiniMapsComponent 
                 taskId={task.id} 
                 userId={user?.uid}
                 surveyorPoints={surveyorPoints}
                 taskProgress={taskProgress}
+                key={`minimaps-${task.id}-${surveyorPoints?.length || 0}`}
             />
         </div>
     );

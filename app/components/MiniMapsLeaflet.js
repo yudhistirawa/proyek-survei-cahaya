@@ -413,6 +413,8 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
     useEffect(() => {
         if (!mapInstance.current) return;
 
+        console.log('🗺️ MiniMapsLeaflet: Updating surveyor progress points, received:', surveyorProgressPoints);
+
         // Remove existing progress markers
         surveyorProgressMarkersRef.current.forEach(marker => {
             try {
@@ -424,9 +426,15 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
         surveyorProgressMarkersRef.current = [];
 
         // Add new progress markers
-        if (surveyorProgressPoints && Array.isArray(surveyorProgressPoints)) {
+        if (surveyorProgressPoints && Array.isArray(surveyorProgressPoints) && surveyorProgressPoints.length > 0) {
+            console.log('📍 MiniMapsLeaflet: Rendering', surveyorProgressPoints.length, 'surveyor progress points');
+            
+            const bounds = [];
+            
             surveyorProgressPoints.forEach((point, index) => {
                 const { lat, lng, name, description, timestamp } = point;
+                
+                console.log(`  Point ${index + 1}:`, { lat, lng, name });
                 
                 const icon = createCustomIcon('progress');
 
@@ -434,6 +442,8 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
                     icon: icon,
                     title: name || `Progress ${index + 1}`
                 }).addTo(mapInstance.current);
+
+                bounds.push([lat, lng]);
 
                 // Create popup content for progress points
                 const popupContent = `
@@ -475,7 +485,22 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
                 surveyorProgressMarkersRef.current.push(marker);
             });
 
-            console.log(`✅ MiniMapsLeaflet: Rendered ${surveyorProgressPoints.length} progress points`);
+            console.log('✅ MiniMapsLeaflet: Rendered', surveyorProgressPoints.length, 'progress points');
+            
+            // Auto-fit map to show all progress points
+            if (bounds.length > 0 && !userInteractedRef.current) {
+                try {
+                    console.log('🎯 MiniMapsLeaflet: Auto-fitting map to show all progress points');
+                    mapInstance.current.fitBounds(bounds, {
+                        padding: [30, 30],
+                        maxZoom: 16
+                    });
+                } catch (e) {
+                    console.warn('Error fitting bounds to progress points:', e);
+                }
+            }
+        } else {
+            console.log('⚠️ MiniMapsLeaflet: No surveyor progress points to render');
         }
 
     }, [surveyorProgressPoints]);
@@ -495,6 +520,17 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
         polygonsRef.current = [];
 
         console.log('Rendering task polygons:', taskPolygons);
+        
+        // Log style information from KMZ
+        if (taskPolygons.coordinates && taskPolygons.coordinates.length > 0) {
+            console.log('📌 KMZ Coordinates styles:', taskPolygons.coordinates.map(c => c.style));
+        }
+        if (taskPolygons.polygons && taskPolygons.polygons.length > 0) {
+            console.log('📐 KMZ Polygons styles:', taskPolygons.polygons.map(p => p.style));
+        }
+        if (taskPolygons.lines && taskPolygons.lines.length > 0) {
+            console.log('📏 KMZ Lines styles:', taskPolygons.lines.map(l => l.style));
+        }
 
         // Handle coordinates (same as KMZMapComponent)
         if (taskPolygons.coordinates && taskPolygons.coordinates.length > 0) {
@@ -502,8 +538,8 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
             
             taskPolygons.coordinates.forEach((coord, index) => {
                 try {
-                    // Get color from coordinate style or use default
-                    const markerColor = coord.style?.fillColor || coord.style?.strokeColor || '#DC2626';
+                    // PRIORITAS: Gunakan warna dari KMZ file
+                    const markerColor = coord.style?.fillColor || coord.style?.strokeColor || '#3B82F6';
                     const markerBorder = coord.style?.strokeColor || '#ffffff';
                     
                     const marker = L.marker([coord.lat, coord.lng], {
@@ -570,13 +606,14 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
                         // Convert coordinates to Leaflet format
                         const coordinates = polygon.coordinates.map(coord => [coord.lat, coord.lng]);
                         
-                        // Use style from KMZ if available, otherwise use defaults
+                        // PRIORITAS: Gunakan style dari KMZ file
                         const style = polygon.style || {};
-                        const fillColor = style.fillColor || '#8B5CF6';
-                        const strokeColor = style.strokeColor || '#7C3AED';
-                        const fillOpacity = style.fillOpacity !== undefined ? style.fillOpacity : 0.1;
-                        const strokeOpacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.8;
-                        const weight = style.strokeWidth || 2;
+                        // Gunakan warna dari KMZ, jika tidak ada gunakan warna semi-transparan
+                        const fillColor = style.fillColor || '#3B82F6';
+                        const strokeColor = style.strokeColor || '#2563EB';
+                        const fillOpacity = style.fillOpacity !== undefined ? style.fillOpacity : 0.2;
+                        const strokeOpacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.9;
+                        const weight = style.strokeWidth || 3;
                         
                         const leafletPolygon = L.polygon(coordinates, {
                             color: strokeColor,
@@ -630,11 +667,12 @@ const MiniMapsLeaflet = ({ currentLocation, surveyPoints, surveyorProgressPoints
                         // Convert coordinates to Leaflet format
                         const coordinates = line.coordinates.map(coord => [coord.lat, coord.lng]);
                         
-                        // Use style from KMZ if available
+                        // PRIORITAS: Gunakan style dari KMZ file
                         const style = line.style || {};
-                        const color = style.strokeColor || '#8B5CF6';
+                        // Gunakan warna dari KMZ file
+                        const color = style.strokeColor || '#3B82F6';
                         const weight = style.strokeWidth || 3;
-                        const opacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.8;
+                        const opacity = style.strokeOpacity !== undefined ? style.strokeOpacity : 0.9;
                         
                         const polyline = L.polyline(coordinates, {
                             color: color,
